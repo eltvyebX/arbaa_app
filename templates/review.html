@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4">
+    <h3 class="mb-3 text-center">مراجعة البيانات المستخرجة</h3>
+    <div class="alert alert-info py-2 text-center">
+        يرجى التأكد من صحة البيانات قبل الحفظ
+    </div>
+    <form action="/confirm" method="post">
+        
+        <div class="mb-3">
+            <label class="form-label fw-bold">رقم العملية (آخر 4 أرقام)</label>
+            <input type="text" class="form-control" name="trx_last4" value="{{ data.trx_last4 }}" placeholder="مثال: 4892">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">التاريخ والوقت</label>
+            <input type="text" class="form-control" name="date_time" value="{{ data.date_time }}" placeholder="YYYY-MM-DD HH:MM">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">المبلغ</label>
+            <div class="input-group">
+                <input type="number" step="0.01" class="form-control" name="amount" value="{{ data.amount }}">
+                <span class="input-group-text">عملة</span>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-grow-1">تأكيد وحفظ</button>
+            <a href="/" class="btn btn-secondary">إلغاء</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4 text-center">
+    <h3>رفع صورة الإشعار</h3>
+    <p class="text-muted">يرجى رفع صورة واضحة للإيصال البنكي</p>
+    <form action="/scan" method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+            <input class="form-control form-control-lg" type="file" name="file" accept="image/*" required>
+        </div>
+        <button type="submit" class="btn btn-success w-100 py-2">مسح واستخراج البيانات</button>
+    </form>
+    <div class="mt-3">
+        <a href="/transactions" class="btn btn-outline-secondary w-100">عرض السجل السابق</a>
+    </div>
+</div>
+{% endblock %}
