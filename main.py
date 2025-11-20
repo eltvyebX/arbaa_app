@@ -132,6 +132,7 @@ def extract_data_from_image(image_path):
                 '%d-%b-%Y',
                 '%d/%m/%Y',
                 '%Y-%m-%d %H:%M:%S',
+                '%d-%m-%Y %H:%M:%S'
             ]
             output_format = '%H:%M:%S %d-%m-%Y'  # HH:MM:SS DD-MM-YYYY
             for fmt in input_formats:
