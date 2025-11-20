@@ -22,7 +22,7 @@ templates = Jinja2Templates(directory="templates")
 
 DB_NAME = "bank_receipts.db"
 
-OCR_API_KEY = "YOUR_OCR_SPACE_API_KEY"  # ضع مفتاحك هنا
+OCR_API_KEY = "K83202383788957"  # ضع مفتاحك هنا
 
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
