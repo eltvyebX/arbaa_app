@@ -3,5 +3,6 @@ uvicorn
 pillow
 opencv-python-headless
 jinja2
+google-generativeai
 python-multipart
 requests
