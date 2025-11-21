@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4">
+    <h3 class="mb-3 text-center">تسجيل/توليد رقم المستخدم</h3>
+    <form method="post" action="/register">
+        <div class="mb-3">
+            <label class="form-label fw-bold">رقم حساب بنكك</label>
+            <input type="text" class="form-control" name="bank_account" placeholder="أدخل رقم حسابك البنكي" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">توليد رقم المستخدم</button>
+    </form>
+
+    {% if user_token %}
+    <div class="alert alert-success mt-3">
+        رقم المستخدم الخاص بك: <strong>{{ user_token }}</strong><br>
+        يرجى حفظ هذا الرقم للوصول إلى حسابك لاحقًا.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
