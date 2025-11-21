@@ -17,13 +17,15 @@ from reportlab.lib.styles import getSampleStyleSheet
 # FastAPI + DB
 # --------------------------------------------------
 app = FastAPI()
-DB_NAME = "bank_receipts.db"
+
+DB_NAME_TRANSACTIONS = "bank_receipts.db"
+DB_NAME_USERS = "users.db"
 
 # --------------------------------------------------
-# تهيئة قاعدة البيانات للعمليات
+# إنشاء قاعدة بيانات المعاملات
 # --------------------------------------------------
-def init_db():
-    with sqlite3.connect(DB_NAME) as conn:
+def init_db_transactions():
+    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
         c = conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
@@ -35,88 +37,78 @@ def init_db():
         """)
         conn.commit()
 
+init_db_transactions()
+
 # --------------------------------------------------
-# تهيئة قاعدة بيانات المستخدمين
+# إنشاء قاعدة بيانات المستخدمين
 # --------------------------------------------------
-def init_users_db():
-    with sqlite3.connect(DB_NAME) as conn:
+def init_db_users():
+    with sqlite3.connect(DB_NAME_USERS) as conn:
         c = conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_number TEXT UNIQUE,
-                user_code TEXT UNIQUE
+                user_code TEXT UNIQUE,
+                bank_account TEXT UNIQUE
             )
         """)
         conn.commit()
 
-init_db()
-init_users_db()
+init_db_users()
 
-# --------------------------------------------------
 # Templates
-# --------------------------------------------------
 if not os.path.exists("templates"):
     os.makedirs("templates")
 
 templates = Jinja2Templates(directory="templates")
 
 # --------------------------------------------------
-# Routes
+# صفحة تسجيل المستخدم
 # --------------------------------------------------
-
-# صفحة التسجيل
-@app.get("/")
+@app.get("/register")
 def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    # توليد user_code تلقائي (8 أحرف hex)
+    user_code = secrets.token_hex(4)
+    return templates.TemplateResponse("register.html", {"request": request, "user_code": user_code})
 
 @app.post("/register")
-def register_user(request: Request, account_number: str = Form(...)):
-    # توليد user_code قوي
-    user_code = secrets.token_hex(4)  # 8 أحرف hex
-    
-    # حفظ المستخدم في قاعدة البيانات
-    with sqlite3.connect(DB_NAME) as conn:
+def register_user(bank_account: str = Form(...), user_code: str = Form(...)):
+    with sqlite3.connect(DB_NAME_USERS) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT OR IGNORE INTO users (account_number, user_code) VALUES (?, ?)",
-            (account_number, user_code)
+            "INSERT INTO users (user_code, bank_account) VALUES (?, ?)",
+            (user_code, bank_account)
         )
         conn.commit()
-    
-    # إعادة توجيه إلى صفحة إدخال العمليات
-    return RedirectResponse(url="/index", status_code=303)
+    # بعد التسجيل، إعادة التوجيه إلى صفحة إدخال المعاملات
+    return RedirectResponse(url="/", status_code=303)
 
-# صفحة إدخال العمليات
-@app.get("/index")
+# --------------------------------------------------
+# صفحة إدخال معاملات جديدة
+# --------------------------------------------------
+@app.get("/")
 def home(request: Request):
     current_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
     return templates.TemplateResponse("index.html", {"request": request, "data": {"trx_last4": "", "date_time": current_time, "amount": 0.0}})
 
-# حفظ العملية
 @app.post("/confirm")
-def confirm_data(
-    request: Request,
-    trx_last4: str = Form(...),
-    amount: float = Form(...),
-):
-    # توليد التاريخ والوقت لحظيًا عند حفظ البيانات
+def confirm_data(trx_last4: str = Form(...), amount: float = Form(...)):
     date_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-
-    with sqlite3.connect(DB_NAME) as conn:
+    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO transactions (trx_last4, trx_date, amount) VALUES (?, ?, ?)",
             (trx_last4, date_time, amount)
         )
         conn.commit()
-
     return RedirectResponse(url="/transactions", status_code=303)
 
-# عرض سجل العمليات
+# --------------------------------------------------
+# عرض المعاملات
+# --------------------------------------------------
 @app.get("/transactions")
 def view_transactions(request: Request):
-    with sqlite3.connect(DB_NAME) as conn:
+    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM transactions ORDER BY id DESC")
@@ -129,46 +121,42 @@ def view_transactions(request: Request):
         "total_amount": total
     })
 
-# حذف عملية
 @app.post("/delete/{id}")
 def delete_transaction(id: int):
-    with sqlite3.connect(DB_NAME) as conn:
+    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM transactions WHERE id = ?", (id,))
         conn.commit()
     return RedirectResponse(url="/transactions", status_code=303)
 
+# --------------------------------------------------
 # تصدير PDF
+# --------------------------------------------------
 @app.get("/export-pdf")
 def export_pdf():
     pdf_file = "transactions_report.pdf"
 
-    with sqlite3.connect(DB_NAME) as conn:
+    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM transactions ORDER BY id ASC")
         transactions = cursor.fetchall()
 
-    # إنشاء ملف PDF
     doc = SimpleDocTemplate(pdf_file, pagesize=A4)
     elements = []
     styles = getSampleStyleSheet()
 
-    # عنوان
     elements.append(Paragraph("سجل العمليات البنكية", styles['Title']))
     elements.append(Spacer(1, 12))
 
-    # إعداد البيانات للجدول
     data = [["رقم العملية (آخر 4 أرقام)", "التاريخ والوقت", "المبلغ"]]
     total_amount = 0
     for trx in transactions:
         data.append([trx["trx_last4"], trx["trx_date"], "%.2f" % trx["amount"]])
         total_amount += trx["amount"]
 
-    # صف الإجمالي
     data.append(["", "الإجمالي الكلي", "%.2f" % total_amount])
 
-    # إعداد الجدول
     table = Table(data, colWidths=[120, 180, 100])
     style = TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.darkblue),
@@ -182,8 +170,5 @@ def export_pdf():
     table.setStyle(style)
     elements.append(table)
 
-    # حفظ PDF
     doc.build(elements)
-
-    # إعادة الملف للتحميل
     return FileResponse(pdf_file, media_type='application/pdf', filename=pdf_file)
