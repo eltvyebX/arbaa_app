@@ -17,139 +17,204 @@ from reportlab.lib.styles import getSampleStyleSheet
 # FastAPI + DB
 # --------------------------------------------------
 app = FastAPI()
+DB_NAME = "bank_receipts.db"
 
-DB_NAME_TRANSACTIONS = "bank_receipts.db"
-DB_NAME_USERS = "users.db"
-
-# --------------------------------------------------
-# إنشاء قاعدة بيانات المعاملات
-# --------------------------------------------------
-def init_db_transactions():
-    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
+def init_db():
+    with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS transactions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                trx_last4 TEXT,
-                trx_date TEXT,
-                amount REAL
-            )
-        """)
-        conn.commit()
 
-init_db_transactions()
-
-# --------------------------------------------------
-# إنشاء قاعدة بيانات المستخدمين
-# --------------------------------------------------
-def init_db_users():
-    with sqlite3.connect(DB_NAME_USERS) as conn:
-        c = conn.cursor()
+        # جدول المستخدمين
         c.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_code TEXT UNIQUE,
-                bank_account TEXT UNIQUE
+                bank_account TEXT
             )
         """)
+
+        # جدول العمليات
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                trx_last4 TEXT,
+                trx_date TEXT,
+                amount REAL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+        """)
+
         conn.commit()
 
-init_db_users()
+init_db()
 
 # Templates
-if not os.path.exists("templates"):
-    os.makedirs("templates")
-
 templates = Jinja2Templates(directory="templates")
 
 # --------------------------------------------------
-# صفحة تسجيل المستخدم
+# Start Page
 # --------------------------------------------------
 @app.get("/")
-def start(request: Request):
-    return templates.TemplateResponse("start_page.html", {"request": request})
+def start_page(request: Request):
+    return templates.TemplateResponse("start.html", {"request": request})
 
+
+# --------------------------------------------------
+# تسجيل مستخدم جديد
+# --------------------------------------------------
 @app.get("/register")
-def register_page(request: Request):
-    # توليد user_code تلقائي (8 أحرف hex)
-    user_code = secrets.token_hex(4)
-    return templates.TemplateResponse("register.html", {"request": request, "user_code": user_code})
+def show_register(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
 
 @app.post("/register")
-def register_user(bank_account: str = Form(...), user_code: str = Form(...)):
-    with sqlite3.connect(DB_NAME_USERS) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO users (user_code, bank_account) VALUES (?, ?)",
-            (user_code, bank_account)
-        )
+def register_user(
+    request: Request,
+    user_id: str = Form(...),
+    bank_account: str = Form(...)
+):
+
+    with sqlite3.connect(DB_NAME) as conn:
+        c = conn.cursor()
+
+        # تخزين المستخدم
+        c.execute("INSERT INTO users (user_code, bank_account) VALUES (?, ?)",
+                  (user_id, bank_account))
         conn.commit()
-    # بعد التسجيل، إعادة التوجيه إلى صفحة إدخال المعاملات
-    return RedirectResponse(url="/index", status_code=303)
+
+        # استرجاع ID
+        c.execute("SELECT id FROM users WHERE user_code = ?", (user_id,))
+        db_user = c.fetchone()
+
+    # حفظ user_id داخل Cookie
+    response = RedirectResponse(url="/index", status_code=303)
+    response.set_cookie("current_user", str(db_user[0]))
+
+    return response
+
 
 # --------------------------------------------------
-# صفحة إدخال معاملات جديدة
+# الصفحة الرئيسية لإدخال عملية
 # --------------------------------------------------
 @app.get("/index")
-def index_page(request: Request):
-    current_time = datetime.now().strftime("%H:%M:%S %d-%m-%Y")
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "data": {"trx_last4": "", "date_time": current_time}
-    })
+def index(request: Request):
+    user_id = request.cookies.get("current_user")
 
+    if not user_id:
+        return RedirectResponse(url="/", status_code=303)
 
-@app.post("/confirm")
-def confirm_data(trx_last4: str = Form(...), amount: float = Form(...)):
-    date_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO transactions (trx_last4, trx_date, amount) VALUES (?, ?, ?)",
-            (trx_last4, date_time, amount)
-        )
-        conn.commit()
-    return RedirectResponse(url="/transactions", status_code=303)
+    current_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "data": {"trx_last4": "", "date_time": current_time, "amount": 0.0},
+        }
+    )
+
 
 # --------------------------------------------------
-# عرض المعاملات
+# حفظ عملية جديدة
+# --------------------------------------------------
+@app.post("/confirm")
+def confirm_data(
+    request: Request,
+    trx_last4: str = Form(...),
+    amount: float = Form(...)
+):
+
+    user_id = request.cookies.get("current_user")
+
+    if not user_id:
+        return RedirectResponse(url="/", status_code=303)
+
+    # التاريخ والوقت
+    date_time = datetime.now().strftime("%H:%M:%S %d-%m-%Y")
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO transactions (user_id, trx_last4, trx_date, amount) VALUES (?, ?, ?, ?)",
+            (user_id, trx_last4, date_time, amount)
+        )
+        conn.commit()
+
+    return RedirectResponse(url="/transactions", status_code=303)
+
+
+# --------------------------------------------------
+# صفحة عرض معاملات المستخدم
 # --------------------------------------------------
 @app.get("/transactions")
 def view_transactions(request: Request):
-    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
+
+    user_id = request.cookies.get("current_user")
+    if not user_id:
+        return RedirectResponse(url="/", status_code=303)
+
+    with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions ORDER BY id DESC")
+
+        cursor.execute(
+            "SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC",
+            (user_id,)
+        )
         trs = cursor.fetchall()
 
     total = sum([t["amount"] for t in trs]) if trs else 0
-    return templates.TemplateResponse("view.html", {
-        "request": request,
-        "transactions": trs,
-        "total_amount": total
-    })
 
+    return templates.TemplateResponse(
+        "view.html",
+        {
+            "request": request,
+            "transactions": trs,
+            "total_amount": total
+        }
+    )
+
+
+# --------------------------------------------------
+# حذف عملية
+# --------------------------------------------------
 @app.post("/delete/{id}")
-def delete_transaction(id: int):
-    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
+def delete_transaction(id: int, request: Request):
+    user_id = request.cookies.get("current_user")
+    if not user_id:
+        return RedirectResponse(url="/", status_code=303)
+
+    with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM transactions WHERE id = ?", (id,))
+        cursor.execute("DELETE FROM transactions WHERE id = ? AND user_id = ?", (id, user_id))
         conn.commit()
+
     return RedirectResponse(url="/transactions", status_code=303)
 
+
 # --------------------------------------------------
-# تصدير PDF
+# ملف PDF
 # --------------------------------------------------
 @app.get("/export-pdf")
-def export_pdf():
+def export_pdf(request: Request):
+
+    user_id = request.cookies.get("current_user")
+    if not user_id:
+        return RedirectResponse(url="/", status_code=303)
+
     pdf_file = "transactions_report.pdf"
 
-    with sqlite3.connect(DB_NAME_TRANSACTIONS) as conn:
+    with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM transactions ORDER BY id ASC")
+
+        cursor.execute(
+            "SELECT * FROM transactions WHERE user_id = ? ORDER BY id ASC",
+            (user_id,)
+        )
         transactions = cursor.fetchall()
 
+    # إنشاء PDF
     doc = SimpleDocTemplate(pdf_file, pagesize=A4)
     elements = []
     styles = getSampleStyleSheet()
@@ -157,13 +222,14 @@ def export_pdf():
     elements.append(Paragraph("سجل العمليات البنكية", styles['Title']))
     elements.append(Spacer(1, 12))
 
-    data = [["رقم العملية (آخر 4 أرقام)", "التاريخ والوقت", "المبلغ"]]
+    data = [["آخر 4 أرقام", "التاريخ", "المبلغ"]]
     total_amount = 0
+
     for trx in transactions:
         data.append([trx["trx_last4"], trx["trx_date"], "%.2f" % trx["amount"]])
         total_amount += trx["amount"]
 
-    data.append(["", "الإجمالي الكلي", "%.2f" % total_amount])
+    data.append(["", "الإجمالي", "%.2f" % total_amount])
 
     table = Table(data, colWidths=[120, 180, 100])
     style = TableStyle([
@@ -176,7 +242,9 @@ def export_pdf():
         ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
     ])
     table.setStyle(style)
+
     elements.append(table)
 
     doc.build(elements)
+
     return FileResponse(pdf_file, media_type='application/pdf', filename=pdf_file)
