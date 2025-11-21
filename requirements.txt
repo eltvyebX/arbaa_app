@@ -1,6 +1,8 @@
 fastapi
 uvicorn
 jinja2
+uuid
+hashlib
 python-multipart
 requests
 reportlab
