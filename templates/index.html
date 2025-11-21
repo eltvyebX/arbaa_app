@@ -1,10 +1,12 @@
-{% extends "base.html" %}
+{% extends "base_user.html" %}
+
+{% block title %}إدخال عملية جديدة{% endblock %}
+
 {% block content %}
-<div class="card p-4">
-    <h3 class="mb-3 text-center">إدخال عملية جديدة</h3>
+<div class="card p-4 shadow-sm">
+    <h3 class="mb-4 text-center">إدخال عملية جديدة</h3>
 
     <form action="/confirm" method="post">
-
         <div class="mb-3">
             <label class="form-label fw-bold">رقم العملية (آخر 4 أرقام)</label>
             <input type="text" class="form-control" name="trx_last4" id="trx_last4" placeholder="مثال: 4892" required
@@ -24,26 +26,24 @@
         <div class="d-flex flex-column gap-2">
             <button type="submit" class="btn btn-primary">حفظ العملية</button>
 
-            <!-- الزر الجديد لعرض المعاملات السابقة -->
+            <!-- زر عرض المعاملات السابقة -->
             <a href="/transactions" class="btn btn-secondary">
                 عرض المعاملات السابقة
             </a>
         </div>
-
     </form>
 </div>
 
 <script>
 function autoFillDate() {
-    // عند إدخال رقم العملية يبدأ بملء الوقت تلقائياً
-    let now = new Date();
-    let formatted = now.getFullYear() + "-" +
-                    String(now.getMonth()+1).padStart(2, '0') + "-" +
-                    String(now.getDate()).padStart(2, '0') + " " +
-                    now.toLocaleTimeString('en-GB');
+    // عند إدخال رقم العملية يبدأ بملء الوقت تلقائيًا
+    const now = new Date();
+    const formatted = now.getFullYear() + "-" +
+                      String(now.getMonth()+1).padStart(2, '0') + "-" +
+                      String(now.getDate()).padStart(2, '0') + " " +
+                      now.toLocaleTimeString('en-GB');
 
     document.getElementById("date_time").value = formatted;
 }
 </script>
-
 {% endblock %}
