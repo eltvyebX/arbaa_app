@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from datetime import datetime
+import secrets
 
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import RedirectResponse, FileResponse
@@ -18,6 +19,9 @@ from reportlab.lib.styles import getSampleStyleSheet
 app = FastAPI()
 DB_NAME = "bank_receipts.db"
 
+# --------------------------------------------------
+# تهيئة قاعدة البيانات للعمليات
+# --------------------------------------------------
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
@@ -31,9 +35,27 @@ def init_db():
         """)
         conn.commit()
 
-init_db()
+# --------------------------------------------------
+# تهيئة قاعدة بيانات المستخدمين
+# --------------------------------------------------
+def init_users_db():
+    with sqlite3.connect(DB_NAME) as conn:
+        c = conn.cursor()
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_number TEXT UNIQUE,
+                user_code TEXT UNIQUE
+            )
+        """)
+        conn.commit()
 
+init_db()
+init_users_db()
+
+# --------------------------------------------------
 # Templates
+# --------------------------------------------------
 if not os.path.exists("templates"):
     os.makedirs("templates")
 
@@ -42,13 +64,36 @@ templates = Jinja2Templates(directory="templates")
 # --------------------------------------------------
 # Routes
 # --------------------------------------------------
+
+# صفحة التسجيل
 @app.get("/")
+def register_page(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
+@app.post("/register")
+def register_user(request: Request, account_number: str = Form(...)):
+    # توليد user_code قوي
+    user_code = secrets.token_hex(4)  # 8 أحرف hex
+    
+    # حفظ المستخدم في قاعدة البيانات
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT OR IGNORE INTO users (account_number, user_code) VALUES (?, ?)",
+            (account_number, user_code)
+        )
+        conn.commit()
+    
+    # إعادة توجيه إلى صفحة إدخال العمليات
+    return RedirectResponse(url="/index", status_code=303)
+
+# صفحة إدخال العمليات
+@app.get("/index")
 def home(request: Request):
-    # توليد الوقت الحالي لعرضه مباشرة في الصندوق
     current_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
     return templates.TemplateResponse("index.html", {"request": request, "data": {"trx_last4": "", "date_time": current_time, "amount": 0.0}})
 
-
+# حفظ العملية
 @app.post("/confirm")
 def confirm_data(
     request: Request,
@@ -56,7 +101,7 @@ def confirm_data(
     amount: float = Form(...),
 ):
     # توليد التاريخ والوقت لحظيًا عند حفظ البيانات
-    date_time = datetime.now().strftime("%H:%M:%S %d-%m-%Y")
+    date_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
@@ -68,7 +113,7 @@ def confirm_data(
 
     return RedirectResponse(url="/transactions", status_code=303)
 
-
+# عرض سجل العمليات
 @app.get("/transactions")
 def view_transactions(request: Request):
     with sqlite3.connect(DB_NAME) as conn:
@@ -84,7 +129,7 @@ def view_transactions(request: Request):
         "total_amount": total
     })
 
-
+# حذف عملية
 @app.post("/delete/{id}")
 def delete_transaction(id: int):
     with sqlite3.connect(DB_NAME) as conn:
@@ -93,10 +138,7 @@ def delete_transaction(id: int):
         conn.commit()
     return RedirectResponse(url="/transactions", status_code=303)
 
-
-# --------------------------------------------------
-# Export PDF
-# --------------------------------------------------
+# تصدير PDF
 @app.get("/export-pdf")
 def export_pdf():
     pdf_file = "transactions_report.pdf"
