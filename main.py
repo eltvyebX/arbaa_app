@@ -136,7 +136,7 @@ def confirm_data(
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO transactions (user_id, trx_last4, trx_date, amount) VALUES (?, ?, ?, ?)",
-            (user_id, trx_last4, date_time, amount)
+            (int(user_id), trx_last4, date_time, amount)
         )
         conn.commit()
 
@@ -163,7 +163,7 @@ def view_transactions(request: Request):
         )
         trs = cursor.fetchall()
 
-    total = sum([t["amount"] for t in trs]) if trs else 0
+    total = sum([float(t["amount"]) for t in trs]) if trs else 0
 
     return templates.TemplateResponse(
         "view.html",
