@@ -8,12 +8,18 @@
 
     <form id="registerForm" method="post" action="/register">
         <div class="mb-3 text-center">
-            <button type="button" class="btn btn-primary w-75" id="generateUserBtn">توليد رقم مستخدم</button>
+            <button type="button" class="btn btn-primary w-75" id="generateUserBtn">توليد المستخدم والرقم السري</button>
         </div>
 
         <div class="mb-3">
             <label class="form-label fw-bold">رقم المستخدم</label>
             <input type="text" class="form-control" name="user_id" id="user_id" readonly placeholder="سيتم توليده تلقائيًا" value="{{ user_id }}">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">الرقم السري (PIN)</label>
+            <input type="text" class="form-control" name="pin" id="pin" readonly placeholder="يتم توليده تلقائيًا">
+            <small class="text-muted">رجاءً احتفظ بهذا الرقم في مكان آمن.</small>
         </div>
 
         <div class="mb-3">
@@ -30,10 +36,19 @@
 
 <script>
 document.getElementById("generateUserBtn").addEventListener("click", function() {
-    // توليد رقم مستخدم قوي (8 أحرف hex)
+
+    // توليد رقم مستخدم
     const randomHex = Array.from({length: 8}, () => Math.floor(Math.random()*16).toString(16)).join('');
     const newUserCode = "USR-" + randomHex;
     document.getElementById("user_id").value = newUserCode;
+
+    // توليد PIN (٤ خانات حروف + أرقام)
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let pin = "";
+    for (let i = 0; i < 4; i++) {
+        pin += chars[Math.floor(Math.random() * chars.length)];
+    }
+    document.getElementById("pin").value = pin;
 });
 </script>
 {% endblock %}
