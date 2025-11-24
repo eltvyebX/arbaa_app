@@ -48,6 +48,8 @@ def init_db():
         conn.commit()
 
 init_db()
+#static
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -256,10 +258,10 @@ def export_pdf(request: Request):
     elements = []
     styles = getSampleStyleSheet()
 
-    elements.append(Paragraph("سجل العمليات البنكية", styles['Title']))
+    elements.append(Paragraph("transactions log", styles['Title']))
     elements.append(Spacer(1, 12))
 
-    data = [["آخر 4 أرقام", "التاريخ", "المبلغ"]]
+    data = [["Last 4 Digit", "Date", "Amount"]]
     total_amount = 0
 
     for trx in transactions:
