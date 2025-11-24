@@ -28,7 +28,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT UNIQUE,
-                bank_account TEXT
+                bank_account TEXT,
+                pin TEXT
             )
         """)
 
@@ -74,23 +75,61 @@ def register_user(
     bank_account: str = Form(...)
 ):
 
+    # توليد PIN من 4 خانات (حروف + أرقام)
+    pin = secrets.token_hex(2).upper()  # مثل A9F3
+
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
 
-        # تخزين المستخدم
-        c.execute("INSERT INTO users (user_id, bank_account) VALUES (?, ?)",
-                  (user_id, bank_account))
+        c.execute("INSERT INTO users (user_id, bank_account, pin) VALUES (?, ?, ?)",
+                  (user_id, bank_account, pin))
         conn.commit()
 
-        # retrive ID
         c.execute("SELECT id FROM users WHERE user_id = ?", (user_id,))
         db_user = c.fetchone()
 
-    # save user_id inside the Cookie
-    response = RedirectResponse(url="/index", status_code=303)
-    response.set_cookie("current_user", str(db_user[0]))
+    # عرض صفحة تخبر المستخدم بالـ PIN
+    return templates.TemplateResponse(
+        "show_pin.html",
+        {
+            "request": request,
+            "pin": pin,
+            "user_id": db_user[0]
+        }
+    )
 
-    return response
+
+# --------------------------------------------------
+# صفحة تسجيل الدخول
+# --------------------------------------------------
+@app.get("/login")
+def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.post("/login")
+def login_user(
+    request: Request,
+    bank_account: str = Form(...),
+    pin: str = Form(...)
+):
+    with sqlite3.connect(DB_NAME) as conn:
+        c = conn.cursor()
+        c.execute(
+            "SELECT id FROM users WHERE bank_account = ? AND pin = ?",
+            (bank_account, pin)
+        )
+        user = c.fetchone()
+
+    if user:
+        response = RedirectResponse(url="/index", status_code=303)
+        response.set_cookie("current_user", str(user[0]))
+        return response
+    else:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "بيانات الدخول غير صحيحة"}
+        )
 
 
 # --------------------------------------------------
@@ -129,7 +168,6 @@ def confirm_data(
     if not user_id:
         return RedirectResponse(url="/", status_code=303)
 
-    # date and time
     date_time = datetime.now().strftime("%H:%M:%S %d-%m-%Y")
 
     with sqlite3.connect(DB_NAME) as conn:
@@ -214,7 +252,6 @@ def export_pdf(request: Request):
         )
         transactions = cursor.fetchall()
 
-    # create PDF file
     doc = SimpleDocTemplate(pdf_file, pagesize=A4)
     elements = []
     styles = getSampleStyleSheet()
