@@ -1,0 +1,27 @@
+{% extends "base_user.html" %}
+
+{% block title %}تسجيل الدخول{% endblock %}
+
+{% block content %}
+<div class="card p-4 shadow-sm">
+    <h3 class="mb-4 text-center">تسجيل الدخول</h3>
+
+    <form method="post" action="/login">
+        <div class="mb-3">
+            <label class="form-label fw-bold">رقم حساب بنكك</label>
+            <input type="text" class="form-control" name="bank_account" placeholder="أدخل رقم الحساب" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">الرقم السري (PIN)</label>
+            <input type="text" maxlength="4" class="form-control" name="pin" placeholder="أدخل الـ PIN" required>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100 mt-3">
+            دخول
+        </button>
+
+        <a href="/" class="btn btn-secondary w-100 mt-2">الرجوع</a>
+    </form>
+</div>
+{% endblock %}
