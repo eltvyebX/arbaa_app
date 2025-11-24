@@ -5,86 +5,161 @@
 {% block content %}
 
 <style>
-    .start-container {
-        width: 100%;
-        min-height: 85vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
+/* استيراد خط عربي جميل مشابه للـ Colorlib */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 
-        background-image: url("/static/MDL_4.jpg"); /* سيتم استبداله تلقائيًا */
-        background-size: cover;
-        background-position: center;
-        position: relative;
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: 'Cairo', sans-serif;
+}
+
+/* الحاوية الخلفية */
+.start-container {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: url("/static/MDL_4.jpg");
+    background-size: cover;
+    background-position: center;
+    position: relative;
+}
+
+/* طبقة التظليل */
+.start-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1;
+}
+
+/* الصندوق المركزي */
+.start-box {
+    position: relative;
+    background: rgba(255,255,255,0.95);
+    padding: 40px 30px;
+    border-radius: 15px;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    z-index: 2;
+    animation: fadeInUp 1s ease forwards;
+}
+
+/* شعار التطبيق */
+.app-logo {
+    width: 80px;
+    margin-bottom: 20px;
+}
+
+/* العناوين والوصف */
+.start-box h2 {
+    font-weight: 700;
+    font-size: 1.6rem;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.start-box p {
+    font-size: 0.95rem;
+    color: #666;
+    margin-bottom: 25px;
+}
+
+/* الحقول */
+.start-box input {
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.start-box input:focus {
+    border-color: #59287f;
+    box-shadow: 0 0 5px rgba(89, 40, 127, 0.5);
+}
+
+/* الأزرار */
+.start-btn {
+    display: block;
+    width: 100%;
+    padding: 12px 0;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.btn-main {
+    background: #59287f;
+    color: #fff;
+    border: none;
+}
+
+.btn-main:hover {
+    background: #401b5f;
+}
+
+.btn-alt {
+    border: 2px solid #59287f;
+    color: #59287f;
+    background: #fff;
+}
+
+.btn-alt:hover {
+    background: #59287f;
+    color: #fff;
+}
+
+/* حركة دخول الصندوق */
+@keyframes fadeInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(30px);
     }
-
-    /* طبقة تظليل */
-    .start-container::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: rgba(0,0,0,0.55);
+    100% {
+        opacity: 1;
+        transform: translateY(0);
     }
+}
 
+/* استجابة الشاشة الصغيرة */
+@media (max-width: 480px) {
     .start-box {
-        position: relative;
-        background: #ffffffdd;
-        padding: 30px;
-        border-radius: 12px;
-        width: 100%;
-        max-width: 420px;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        padding: 30px 20px;
     }
-
-    .app-logo {
-        width: 80px;
-        margin-bottom: 15px;
+    .start-box h2 {
+        font-size: 1.4rem;
     }
-
     .start-btn {
-        display: block;
-        width: 100%;
-        padding: 12px;
-        border-radius: 8px;
-        font-size: 18px;
-        margin-top: 12px;
+        font-size: 15px;
     }
-
-    .btn-main {
-        background: #59287f;
-        color: #fff;
-        font-weight: bold;
-    }
-
-    .btn-alt {
-        border: 2px solid #59287f;
-        color: #59287f;
-        font-weight: bold;
-        background: #fff;
-    }
+}
 </style>
 
 <div class="start-container">
-
     <div class="start-box">
 
-        <!-- لوجو التطبيق -->
+        <!-- شعار التطبيق -->
         <img src="/static/logo1-01.png" class="app-logo" alt="Logo">
 
-        <h2 class="mb-3 fw-bold"> مرحبًا بك في تطبيق أربعة - اشعر كأنك في بيتك</h2>
-        <p class="text-muted mb-4">نظام محفظة الإيصالات البنكية  </p>
-
-        <!-- زر تسجيل جديد -->
-        <a href="/register" class="start-btn btn-main">
-            تسجيل مستخدم جديد
-        </a>
-
-        <!-- زر تسجيل الدخول -->
-        <a href="/login" class="start-btn btn-alt">
-            تسجيل الدخول
-        </a>
+        <!-- عنوان ووصف -->
+        <h2>مرحبًا بك في تطبيق أربعة</h2>
+        <p>نظام محفظة الإيصالات البنكية</p>
+        <!-- الأزرار -->
+        <a href="/register" class="start-btn btn-main">تسجيل مستخدم جديد</a>
+        <a href="/login" class="start-btn btn-alt">تسجيل الدخول</a>
 
     </div>
 </div>
