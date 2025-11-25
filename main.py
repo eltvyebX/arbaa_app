@@ -15,7 +15,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet
 
 # --------------------------------------------------
-# FastAPI + DB
+# FastAPI + DB Setup
 # --------------------------------------------------
 app = FastAPI()
 DB_NAME = "bank_receipts.db"
@@ -50,22 +50,21 @@ def init_db():
 
 init_db()
 
-#static
+# static
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Templates
 templates = Jinja2Templates(directory="templates")
 
 # --------------------------------------------------
-# Start Page
+## 🏠 Start Page
 # --------------------------------------------------
 @app.get("/")
 def start_page(request: Request):
     return templates.TemplateResponse("start_page.html", {"request": request})
 
-
 # --------------------------------------------------
-# تسجيل مستخدم جديد
+## 📝 تسجيل مستخدم جديد
 # --------------------------------------------------
 @app.get("/register")
 def show_register(request: Request):
@@ -76,12 +75,10 @@ def show_register(request: Request):
 def register_user(
     request: Request,
     user_id: str = Form(...),
-    bank_account: str = Form(...)
+    bank_account: str = Form(...),
+    # 🟢 تعديل: استقبال PIN من الفورم بدلاً من توليده في الخادم
+    pin: str = Form(...) 
 ):
-
-    # توليد PIN من 4 خانات (حروف + أرقام)
-    pin = secrets.token_hex(2).upper()  # مثل A9F3
-
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
 
@@ -102,9 +99,8 @@ def register_user(
         }
     )
 
-
 # --------------------------------------------------
-# صفحة تسجيل الدخول
+## 🔐 صفحة تسجيل الدخول
 # --------------------------------------------------
 @app.get("/login")
 def login_page(request: Request):
@@ -135,9 +131,8 @@ def login_user(
             {"request": request, "error": "بيانات الدخول غير صحيحة"}
         )
 
-
 # --------------------------------------------------
-#    transactions home page 
+## 🧾 transactions home page (Index)
 # --------------------------------------------------
 @app.get("/index")
 def index(request: Request):
@@ -146,19 +141,20 @@ def index(request: Request):
     if not user_id:
         return RedirectResponse(url="/", status_code=303)
 
-    current_time = datetime.now().strftime("%H:%M:%S %d-%m-%Y")
+    # 🟢 تعديل: استخدام تنسيق آمن للتاريخ والوقت
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
+            # يتم تمرير بيانات مبدئية لصفحة index/إدخال عملية جديدة
             "data": {"trx_last4": "", "date_time": current_time, "amount": 0.0},
         }
     )
 
-
 # --------------------------------------------------
-#   save new transaction
+## 💾 save new transaction
 # --------------------------------------------------
 @app.post("/confirm")
 def confirm_data(
@@ -172,7 +168,8 @@ def confirm_data(
     if not user_id:
         return RedirectResponse(url="/", status_code=303)
 
-    date_time = datetime.now().strftime("%H:%M:%S %d-%m-%Y")
+    # 🟢 استخدام نفس التنسيق الآمن عند حفظ التاريخ
+    date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
@@ -184,9 +181,8 @@ def confirm_data(
 
     return RedirectResponse(url="/transactions", status_code=303)
 
-
 # --------------------------------------------------
-#    transcations page view
+## 📊 transcations page view
 # --------------------------------------------------
 @app.get("/transactions")
 def view_transactions(request: Request):
@@ -216,9 +212,8 @@ def view_transactions(request: Request):
         }
     )
 
-
 # --------------------------------------------------
-# delete transaction
+## 🗑️ delete transaction
 # --------------------------------------------------
 @app.post("/delete/{id}")
 def delete_transaction(id: int, request: Request):
@@ -233,9 +228,8 @@ def delete_transaction(id: int, request: Request):
 
     return RedirectResponse(url="/transactions", status_code=303)
 
-
 # --------------------------------------------------
-#  PDF file
+## 📄 PDF file Export
 # --------------------------------------------------
 @app.get("/export-pdf")
 def export_pdf(request: Request):
@@ -260,6 +254,8 @@ def export_pdf(request: Request):
     elements = []
     styles = getSampleStyleSheet()
 
+    # هنا قد تحتاج إلى حزمة خطوط تدعم اللغة العربية في ReportLab
+    # (ReportLab لا يدعم العربية افتراضياً بشكل جيد، لكننا نستخدمه كما هو في الكود الأصلي)
     elements.append(Paragraph("transactions log", styles['Title']))
     elements.append(Spacer(1, 12))
 
