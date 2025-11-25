@@ -1,95 +1,142 @@
-<div class="start-container">
-    <!-- الصورة الأساسية -->
-    <div class="start-image"></div>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق أربعة - محفظة الإيصالات البنكية</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            /* 📱 الافتراضي: تصميم الهاتف */
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Cairo', sans-serif;
+            background-color: #f0f0f0; /* خلفية خفيفة */
+        }
 
-    <!-- صندوق الكتابة -->
-    <div class="start-box">
-        <img src="/static/logo1-01.png" style="width:80px; margin-bottom:20px;" alt="Logo">
-        <h2>مرحبًا بك في تطبيق أربعة</h2>
-        <p>نظام محفظة الإيصالات البنكية</p>
-        <a href="/register" class="start-btn btn-main">تسجيل مستخدم جديد</a>
-        <a href="/login" class="start-btn btn-alt">تسجيل الدخول</a>
+        .start-container {
+            display: flex;
+            flex-direction: column; /* الترتيب الافتراضي: الصورة فوق النص */
+            min-height: 100vh;
+            width: 100%;
+            position: relative;
+        }
+
+        /* 🖼️ الصورة الأساسية (في الجزء العلوي للهاتف) */
+        .start-image {
+            width: 100%;
+            height: 250px; /* ارتفاع ثابت نسبيًا للهاتف */
+            background-image: url("/static/MDL_4.jpg");
+            background-size: cover;
+            background-position: center center; /* تركيز في المنتصف */
+            background-repeat: no-repeat;
+        }
+
+        /* 📦 صندوق الكتابة (في الجزء السفلي للهاتف) */
+        .start-box {
+            flex-grow: 1; /* يشغل المساحة المتبقية */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* المحتوى يبدأ من الأعلى */
+            align-items: center; /* محاذاة كل شيء في المنتصف */
+            padding: 40px 25px 20px;
+            background: #fff;
+            margin: -20px 0 0 0; /* تحريكه للأعلى قليلاً فوق الصورة */
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+            text-align: center; /* محاذاة النص في المنتصف */
+        }
+
+        /* تعديلات محددة لعناصر النص */
+        .start-box h2 {
+            margin-top: 0;
+            font-size: 24px;
+            color: #59287f;
+        }
+
+        .start-box p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        /* 🔘 الأزرار */
+        .start-btn {
+            padding: 14px 0;
+            border-radius: 10px; /* جعلها أكثر استدارة قليلاً */
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 350px; /* تحديد عرض أقصى للأزرار */
+            text-decoration: none;
+            text-align: center;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .btn-main {
+            background: #59287f;
+            color: #fff;
+            border: none;
+        }
+
+        .btn-alt {
+            background: #fff;
+            color: #59287f;
+            border: 2px solid #59287f;
+        }
+
+        .btn-main:hover { background: #4a1f6a; }
+        .btn-alt:hover { background: #f5f5f5; }
+
+        /* --- استعلام الوسائط للشاشات الأكبر (مثل سطح المكتب) --- */
+        @media (min-width: 769px) {
+            .start-container {
+                flex-direction: row; /* العودة إلى الترتيب الأفقي */
+            }
+            .start-image {
+                flex: 1.2; /* تعطي مساحة أكبر للصورة */
+                height: 100vh; /* ارتفاع كامل */
+                background-position: left center; /* محاذاة قليلاً إلى اليسار */
+                margin: 0;
+                border-radius: 0;
+            }
+            .start-box {
+                flex: 0.7; /* مساحة أقل من الصورة */
+                justify-content: center; /* محاذاة المحتوى في المنتصف عمودياً */
+                align-items: flex-start; /* محاذاة النص إلى اليمين */
+                padding: 60px 40px;
+                margin: 40px 40px 40px 0; /* هوامش خارجية كما في التصميم الأصلي */
+                border-radius: 20px; /* جعل الزوايا كلها مستديرة */
+                max-width: 480px;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+                position: absolute; /* وضعه كعنصر مطلق فوق الصورة */
+                top: 50%;
+                right: 0;
+                transform: translateY(-50%);
+                text-align: right;
+            }
+            .start-box h2, .start-box p {
+                text-align: right;
+            }
+             .start-btn {
+                max-width: none; /* إزالة الحد الأقصى للعرض على سطح المكتب */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="start-container">
+        <div class="start-image"></div>
+
+        <div class="start-box">
+            <img src="/static/logo1-01.png" style="width:80px; margin-bottom:20px;" alt="Logo">
+            <h2>مرحبًا بك في تطبيق أربعة</h2>
+            <p>نظام محفظة الإيصالات البنكية</p>
+            <a href="/register" class="start-btn btn-main">تسجيل مستخدم جديد</a>
+            <a href="/login" class="start-btn btn-alt">تسجيل الدخول</a>
+        </div>
     </div>
-</div>
-
-<style>
-body, html {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    font-family: 'Cairo', sans-serif;
-}
-
-.start-container {
-    display: flex;
-    height: 100vh;
-    width: 100%;
-    position: relative;
-}
-
-/* الصورة الأساسية */
-.start-image {
-    flex: 1.2; /* تعطي مساحة أكبر للصورة */
-    background-image: url("/static/MDL_4.jpg");
-    background-size: cover; /* تغطي كامل المساحة */
-    background-position: left center; /* محاذاة قليلاً إلى اليسار */
-    background-repeat: no-repeat;
-}
-
-/* صندوق الكتابة على الجانب الأيمن */
-.start-box {
-    flex: 0.7; /* مساحة أقل من الصورة */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 60px 40px;
-    background: rgba(255,255,255,0.95);
-    border-radius: 20px 0 0 20px;
-    margin: 40px 0 40px 40px;
-    max-width: 480px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-}
-
-/* الأزرار */
-.start-btn {
-    padding: 12px 0;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    width: 100%;
-    text-decoration: none;
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.btn-main {
-    background: #59287f;
-    color: #fff;
-    border: none;
-}
-
-.btn-alt {
-    background: #fff;
-    color: #59287f;
-    border: 2px solid #59287f;
-}
-
-/* استجابة للشاشات الصغيرة */
-@media (max-width: 768px) {
-    .start-container {
-        flex-direction: column;
-    }
-    .start-image {
-        flex: 0 0 250px;
-        width: 100%;
-    }
-    .start-box {
-        margin: 20px;
-        max-width: 100%;
-        align-items: center;
-        text-align: center;
-    }
-}
-</style>
+</body>
+</html>
