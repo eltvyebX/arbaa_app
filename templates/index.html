@@ -63,15 +63,27 @@
 
 <script>
 function autoFillDate() {
-    // عند إدخال رقم العملية يبدأ بملء الوقت تلقائيًا
     const now = new Date();
-    const formatted = now.getFullYear() + "-" +
-                        String(now.getMonth()+1).padStart(2, '0') + "-" +
-                        String(now.getDate()).padStart(2, '0') + " " +
-                        // استخدام 'en-GB' لضمان تنسيق 24 ساعة بدون AM/PM افتراضي
-                        now.toLocaleTimeString('en-GB'); 
+    
+    // تنسيق التاريخ: YYYY-MM-DD
+    const datePart = now.getFullYear() + "-" +
+                     String(now.getMonth() + 1).padStart(2, '0') + "-" +
+                     String(now.getDate()).padStart(2, '0');
+    
+    // تنسيق الوقت: HH:MM:SS (صيغة 24 ساعة)
+    const timePart = String(now.getHours()).padStart(2, '0') + ":" +
+                     String(now.getMinutes()).padStart(2, '0') + ":" +
+                     String(now.getSeconds()).padStart(2, '0');
+
+    // 🟢 التعديل: التوحيد ليتناسب مع تنسيق Python: YYYY-MM-DD HH:MM:SS
+    const formatted = datePart + " " + timePart; 
 
     document.getElementById("date_time").value = formatted;
 }
+
+// 💡 ملاحظة: يجب أن يتم تعبئة حقل التاريخ عند تحميل الصفحة أيضًا (من خلال قيمة Jinja المرسلة من دالة index في main.py)
+// إذا كان هذا الملف هو index.html، فسيتم تعبئة الحقل عبر:
+// document.getElementById("date_time").value = "{{ data.date_time }}";
+// ... إذا لم يتم تعبئة الحقل، ستحتاج إلى إضافة دالة Run On Load لتعيين القيمة المبدئية.
 </script>
 {% endblock %}
