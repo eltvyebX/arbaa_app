@@ -8,7 +8,7 @@
 
     <form id="registerForm" method="post" action="/register">
         <div class="mb-3 text-center">
-            <button type="button" class="btn btn-primary w-75" id="generateUserBtn">توليد المستخدم والرقم السري</button>
+            <button type="button" class="btn btn-custom-generate w-75" id="generateUserBtn">توليد المستخدم والرقم السري</button>
         </div>
 
         <div class="mb-3">
@@ -28,12 +28,52 @@
         </div>
 
         <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-success flex-grow-1">حفظ المستخدم</button>
-            <a href="/" class="btn btn-secondary flex-grow-1">إلغاء</a>
+            <button type="submit" class="btn btn-custom-save flex-grow-1">حفظ المستخدم</button>
+            <a href="/" class="btn btn-custom-cancel flex-grow-1">إلغاء</a>
         </div>
     </form>
 </div>
 
+<style>
+    /* لون زر التوليد: #59287f */
+    .btn-custom-generate {
+        background-color: #59287f;
+        border-color: #59287f;
+        color: #fff;
+    }
+    .btn-custom-generate:hover,
+    .btn-custom-generate:focus {
+        background-color: #4a1f6a;
+        border-color: #4a1f6a;
+        color: #fff;
+    }
+
+    /* لون زر الحفظ: #a1bf37 */
+    .btn-custom-save {
+        background-color: #a1bf37;
+        border-color: #a1bf37;
+        color: #fff;
+    }
+    .btn-custom-save:hover,
+    .btn-custom-save:focus {
+        background-color: #8c9b2f;
+        border-color: #8c9b2f;
+        color: #fff;
+    }
+
+    /* ⚠️ النمط الجديد لزر الإلغاء (الرمادي الفاتح) */
+    .btn-custom-cancel {
+        background-color: #adb5bd; /* رمادي فاتح */
+        border-color: #adb5bd;
+        color: #fff; /* نص أبيض لتباين جيد */
+    }
+    .btn-custom-cancel:hover,
+    .btn-custom-cancel:focus {
+        background-color: #939aa2; /* درجة أغمق قليلاً عند التفاعل */
+        border-color: #939aa2;
+        color: #fff;
+    }
+</style>
 <script>
 document.getElementById("generateUserBtn").addEventListener("click", function() {
 
