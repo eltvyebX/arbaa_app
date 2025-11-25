@@ -10,16 +10,45 @@
     <p class="text-muted">هذا هو الرقم السري (PIN) الخاص بحسابك — يرجى حفظه في مكان آمن. سيظهر مرة واحدة فقط.</p>
 
     <div class="mb-4">
-        <h2 class="fw-bold text-success">{{ pin }}</h2>
+        <h2 class="fw-bold" style="color: #59287f;">{{ pin }}</h2> 
         {% if user_id %}
         <p class="small text-muted">معرّف المستخدم الداخلي: {{ user_id }}</p>
         {% endif %}
     </div>
 
     <div class="d-grid gap-2">
-        <a href="/login" class="btn btn-primary">الذهاب لتسجيل الدخول</a>
-        <a href="/" class="btn btn-outline-secondary">العودة للرئيسية</a>
+        <a href="/login" class="btn btn-save-op">الذهاب لتسجيل الدخول</a>
+        
+        <a href="/" class="btn btn-back">العودة للرئيسية</a>
     </div>
 
 </div>
+
+<style>
+    /* 1. زر الذهاب لتسجيل الدخول (الأخضر المصفر #a1bf37) */
+    .btn-save-op {
+        background-color: #a1bf37;
+        border-color: #a1bf37;
+        color: #fff;
+    }
+    .btn-save-op:hover,
+    .btn-save-op:focus {
+        background-color: #8c9b2f;
+        border-color: #8c9b2f;
+        color: #fff;
+    }
+
+    /* 2. زر العودة للرئيسية (الرمادي الفاتح #adb5bd) */
+    .btn-back {
+        background-color: #adb5bd; 
+        border-color: #adb5bd;
+        color: #fff;
+    }
+    .btn-back:hover,
+    .btn-back:focus {
+        background-color: #939aa2;
+        border-color: #939aa2;
+        color: #fff;
+    }
+</style>
 {% endblock %}
