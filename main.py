@@ -21,6 +21,7 @@ app = FastAPI()
 DB_NAME = "bank_receipts.db"
 
 def init_db():
+    """تهيئة قاعدة البيانات وإنشاء الجداول إذا لم تكن موجودة."""
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
 
@@ -76,8 +77,7 @@ def register_user(
     request: Request,
     user_id: str = Form(...),
     bank_account: str = Form(...),
-    # 🟢 تعديل: استقبال PIN من الفورم بدلاً من توليده في الخادم
-    pin: str = Form(...) 
+    pin: str = Form(...) # يتم استقبال PIN من الفورم (JS)
 ):
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
@@ -123,7 +123,9 @@ def login_user(
 
     if user:
         response = RedirectResponse(url="/index", status_code=303)
-        response.set_cookie("current_user", str(user[0]))
+        # 🟢 FIX 1: جعل الكوكي دائمًا (صالحًا لمدة 30 يومًا)
+        one_month = 30 * 24 * 60 * 60 
+        response.set_cookie("current_user", str(user[0]), max_age=one_month)
         return response
     else:
         return templates.TemplateResponse(
@@ -141,14 +143,13 @@ def index(request: Request):
     if not user_id:
         return RedirectResponse(url="/", status_code=303)
 
-    # 🟢 تعديل: استخدام تنسيق آمن للتاريخ والوقت
+    # استخدام تنسيق آمن للتاريخ والوقت
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
-            # يتم تمرير بيانات مبدئية لصفحة index/إدخال عملية جديدة
             "data": {"trx_last4": "", "date_time": current_time, "amount": 0.0},
         }
     )
@@ -163,19 +164,25 @@ def confirm_data(
     amount: float = Form(...)
 ):
 
-    user_id = request.cookies.get("current_user")
+    user_id_str = request.cookies.get("current_user")
 
-    if not user_id:
+    if not user_id_str:
+        return RedirectResponse(url="/", status_code=303)
+    
+    # 🟢 FIX 2: تحويل user_id إلى عدد صحيح قبل الاستخدام في قاعدة البيانات
+    try:
+        user_id = int(user_id_str)
+    except ValueError:
         return RedirectResponse(url="/", status_code=303)
 
-    # 🟢 استخدام نفس التنسيق الآمن عند حفظ التاريخ
+    # استخدام نفس التنسيق الآمن عند حفظ التاريخ
     date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO transactions (user_id, trx_last4, trx_date, amount) VALUES (?, ?, ?, ?)",
-            (int(user_id), trx_last4, date_time, amount)
+            (user_id, trx_last4, date_time, amount)
         )
         conn.commit()
 
@@ -187,8 +194,14 @@ def confirm_data(
 @app.get("/transactions")
 def view_transactions(request: Request):
 
-    user_id = request.cookies.get("current_user")
-    if not user_id:
+    user_id_str = request.cookies.get("current_user")
+    if not user_id_str:
+        return RedirectResponse(url="/", status_code=303)
+
+    # 🟢 FIX 2: تحويل user_id إلى عدد صحيح قبل الاستخدام في قاعدة البيانات
+    try:
+        user_id_int = int(user_id_str)
+    except ValueError:
         return RedirectResponse(url="/", status_code=303)
 
     with sqlite3.connect(DB_NAME) as conn:
@@ -197,7 +210,7 @@ def view_transactions(request: Request):
 
         cursor.execute(
             "SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC",
-            (user_id,)
+            (user_id_int,) # استخدام القيمة كعدد صحيح
         )
         trs = cursor.fetchall()
 
@@ -217,13 +230,20 @@ def view_transactions(request: Request):
 # --------------------------------------------------
 @app.post("/delete/{id}")
 def delete_transaction(id: int, request: Request):
-    user_id = request.cookies.get("current_user")
-    if not user_id:
+    user_id_str = request.cookies.get("current_user")
+    if not user_id_str:
         return RedirectResponse(url="/", status_code=303)
+    
+    # 🟢 FIX 2: تحويل user_id إلى عدد صحيح قبل الاستخدام في قاعدة البيانات
+    try:
+        user_id_int = int(user_id_str)
+    except ValueError:
+        return RedirectResponse(url="/", status_code=303)
+
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM transactions WHERE id = ? AND user_id = ?", (id, user_id))
+        cursor.execute("DELETE FROM transactions WHERE id = ? AND user_id = ?", (id, user_id_int))
         conn.commit()
 
     return RedirectResponse(url="/transactions", status_code=303)
@@ -234,8 +254,14 @@ def delete_transaction(id: int, request: Request):
 @app.get("/export-pdf")
 def export_pdf(request: Request):
 
-    user_id = request.cookies.get("current_user")
-    if not user_id:
+    user_id_str = request.cookies.get("current_user")
+    if not user_id_str:
+        return RedirectResponse(url="/", status_code=303)
+    
+    # 🟢 FIX 2: تحويل user_id إلى عدد صحيح قبل الاستخدام في قاعدة البيانات
+    try:
+        user_id_int = int(user_id_str)
+    except ValueError:
         return RedirectResponse(url="/", status_code=303)
 
     pdf_file = "transactions_report.pdf"
@@ -246,7 +272,7 @@ def export_pdf(request: Request):
 
         cursor.execute(
             "SELECT * FROM transactions WHERE user_id = ? ORDER BY id ASC",
-            (user_id,)
+            (user_id_int,) # استخدام القيمة كعدد صحيح
         )
         transactions = cursor.fetchall()
 
@@ -254,8 +280,6 @@ def export_pdf(request: Request):
     elements = []
     styles = getSampleStyleSheet()
 
-    # هنا قد تحتاج إلى حزمة خطوط تدعم اللغة العربية في ReportLab
-    # (ReportLab لا يدعم العربية افتراضياً بشكل جيد، لكننا نستخدمه كما هو في الكود الأصلي)
     elements.append(Paragraph("transactions log", styles['Title']))
     elements.append(Spacer(1, 12))
 
@@ -266,7 +290,7 @@ def export_pdf(request: Request):
         data.append([trx["trx_last4"], trx["trx_date"], "%.2f" % trx["amount"]])
         total_amount += trx["amount"]
 
-    data.append(["", "الإجمالي", "%.2f" % total_amount])
+    data.append(["", "TOTAL", "%.2f" % total_amount])
 
     table = Table(data, colWidths=[120, 180, 100])
     style = TableStyle([
