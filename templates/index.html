@@ -3,71 +3,101 @@
 {% block title %}التقاط إشعار جديد{% endblock %}
 
 {% block content %}
-<div class="card p-4 shadow-sm text-center">
-    <h3 class="mb-4">التقاط إشعار جديد</h3>
 
-    <video id="video" width="100%" autoplay playsinline style="border:1px solid #ccc; border-radius:5px;"></video>
-    <canvas id="canvas" style="display:none;"></canvas>
+<div class="text-center">
 
-    <div class="mt-3 d-flex flex-column gap-2">
-        <button id="captureBtn" class="btn btn-save-op">التقاط الإشعار</button>
-        <button id="retakeBtn" class="btn btn-danger" style="display:none;">إعادة التقاط</button>
+    <h4 class="mb-3" style="color:#59287f; font-weight:700;">
+        التقط صورة الإشعار
+    </h4>
+
+    <!-- كاميرا الهاتف -->
+    <div class="camera-box mb-4">
+        <video id="camera" autoplay playsinline></video>
     </div>
+
+    <!-- زر التقاط الصورة -->
+    <button id="captureBtn" class="btn btn-main w-100 mb-3" style="padding:14px;">
+        التقاط الإشعار
+    </button>
+
+    <!-- زر الذهاب مباشرة إلى view -->
+    <a href="/view" class="btn btn-alt w-100" style="padding:14px;">
+        عرض الإشعارات المحفوظة
+    </a>
+
+    <!-- فورم مخفي لإرسال الصورة -->
+    <form id="uploadForm" method="POST" action="/upload_capture" enctype="multipart/form-data">
+        <input type="hidden" name="image_data" id="image_data">
+    </form>
 </div>
 
-<script>
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const captureBtn = document.getElementById('captureBtn');
-const retakeBtn = document.getElementById('retakeBtn');
-
-// تشغيل الكاميرا
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-    .then(stream => { video.srcObject = stream; })
-    .catch(err => { alert("تعذر الوصول للكاميرا: " + err); });
-
-captureBtn.addEventListener('click', () => {
-    // أخذ لقطة
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-
-    // تحويل الصورة لبيانات Base64
-    const dataUrl = canvas.toDataURL('image/png');
-
-    // إرسال الصورة لـ FastAPI
-    fetch('/upload_capture', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'captured_image=' + encodeURIComponent(dataUrl)
-    }).then(() => {
-        window.location.href = "/view";
-    });
-
-    // إخفاء زر الالتقاط وإظهار إعادة الالتقاط
-    captureBtn.style.display = 'none';
-    retakeBtn.style.display = 'block';
-});
-
-retakeBtn.addEventListener('click', () => {
-    captureBtn.style.display = 'block';
-    retakeBtn.style.display = 'none';
-});
-</script>
-
 <style>
-.btn-save-op {
-    background-color: #a1bf37;
-    border-color: #a1bf37;
-    color: #fff;
-}
-.btn-save-op:hover { background-color: #8c9b2f; }
+    video {
+        width: 100%;
+        max-width: 420px;
+        border-radius: 12px;
+        background: #000;
+    }
 
-.btn-danger {
-    background-color: #d9534f;
-    border-color: #d43f3a;
-    color: #fff;
-}
-.btn-danger:hover { background-color: #c12e2a; }
+    .camera-box {
+        display: flex;
+        justify-content: center;
+    }
+
+    .btn-main {
+        background: #59287f;
+        border: none;
+        color: #fff;
+        font-size: 17px;
+        font-weight: 700;
+    }
+
+    .btn-main:hover {
+        background: #451c62;
+    }
+
+    .btn-alt {
+        background: #fff;
+        border: 2px solid #59287f;
+        color: #59287f;
+        font-size: 17px;
+        font-weight: 700;
+    }
+
+    .btn-alt:hover {
+        background: #f4f4f4;
+    }
 </style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // تشغيل الكاميرا
+    const video = document.getElementById('camera');
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(err => {
+            alert("لا يمكن فتح الكاميرا، يرجى السماح بالأذن للكاميرا.");
+        });
+
+    // التقاط الصورة
+    document.getElementById('captureBtn').onclick = function() {
+        let canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        let ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        let imageData = canvas.toDataURL("image/png");
+
+        document.getElementById("image_data").value = imageData;
+
+        document.getElementById("uploadForm").submit();
+    };
+</script>
 {% endblock %}
