@@ -1,84 +1,15 @@
-{% extends "base_user.html" %}
-
-{% block title %}إدخال إشعار جديد{% endblock %}
-
-{% block content %}
-<div class="card p-4 shadow-sm">
-    <h3 class="mb-4 text-center">إدخال إشعار جديد</h3>
-
-    <!-- Form to upload new receipt -->
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label class="form-label fw-bold">صورة الإشعار</label>
-            <input type="file" class="form-control" name="file" accept="image/*" required>
-        </div>
-        <button type="submit" class="btn btn-save-op">رفع وحفظ الإشعار</button>
-    </form>
-</div>
-
-<!-- Transactions Table -->
-{% if transactions %}
-<div class="card p-4 mt-4 shadow-sm">
-    <h4 class="mb-3 text-center">الإشعارات السابقة</h4>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>الصورة</th>
-                <th>المبلغ</th>
-                <th>التاريخ</th>
-                <th>إجراءات</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for trx in transactions %}
-            <tr>
-                <td>
-                    <a href="{{ '/' + trx.image_path }}" target="_blank">
-                        <img src="{{ '/' + trx.image_path }}" alt="Receipt" width="80">
-                    </a>
-                </td>
-                <td>{{ "%.2f"|format(trx.amount) }}</td>
-                <td>{{ trx.created_at }}</td>
-                <td>
-                    <form action="/delete/{{ trx.id }}" method="post" onsubmit="return confirm('هل أنت متأكد من الحذف؟');">
-                        <button type="submit" class="btn btn-danger btn-sm">حذف</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-            <tr>
-                <td><strong>الإجمالي</strong></td>
-                <td colspan="3"><strong>{{ "%.2f"|format(total_amount) }}</strong></td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-{% else %}
-<div class="alert alert-info mt-4">
-    لا توجد إشعارات محفوظة بعد.
-</div>
-{% endif %}
-
-<style>
-.btn-save-op {
-    background-color: #a1bf37;
-    border-color: #a1bf37;
-    color: #fff;
-}
-.btn-save-op:hover, .btn-save-op:focus {
-    background-color: #8c9b2f;
-    border-color: #8c9b2f;
-    color: #fff;
-}
-.btn-danger {
-    background-color: #d9534f;
-    border-color: #d43f3a;
-    color: #fff;
-}
-.btn-danger:hover, .btn-danger:focus {
-    background-color: #c12e2a;
-    border-color: #a12a26;
-    color: #fff;
-}
-</style>
-{% endblock %}
+<form action="/confirm" method="post" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label class="form-label fw-bold">صورة الإشعار</label>
+        <input type="file" class="form-control" name="receipt_image" accept="image/*" required>
+    </div>
+    <div class="mb-3">
+        <label class="form-label fw-bold">رقم العملية (آخر 4 أرقام)</label>
+        <input type="text" class="form-control" name="trx_last4" placeholder="مثال: 4892" required>
+    </div>
+    <div class="mb-3">
+        <label class="form-label fw-bold">المبلغ</label>
+        <input type="number" step="0.01" class="form-control" name="amount" required>
+    </div>
+    <button type="submit" class="btn btn-save-op">رفع وحفظ الإشعار</button>
+</form>
