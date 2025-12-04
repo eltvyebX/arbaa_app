@@ -1,7 +1,8 @@
 fastapi
 uvicorn
 jinja2
-uuid
 python-multipart
-requests
-reportlab
+pillow
+easyocr
+opencv-python-headless
+numpy
