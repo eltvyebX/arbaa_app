@@ -3,87 +3,49 @@
 {% block title %}عرض الإشعارات{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="card p-4 shadow-sm">
+    <h3 class="mb-4 text-center">الإشعارات السابقة</h3>
 
-    <!-- 1️⃣ Dashboard -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card text-center p-3 shadow-sm">
-                <h4>عدد الإشعارات</h4>
-                <h2>{{ transactions|length }}</h2>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card text-center p-3 shadow-sm">
-                <h4>إجمالي المبالغ</h4>
-                <h2>{{ total_amount }} SAR</h2>
-            </div>
-        </div>
-    </div>
-
-    <!-- 2️⃣ أزرار حذف جميع الصور وتصدير PDF -->
-    <div class="mb-4 d-flex gap-2">
-        <form action="/delete_all" method="post" onsubmit="return confirm('هل أنت متأكد من حذف جميع الصور؟');">
-            <button type="submit" class="btn btn-danger">حذف جميع الإشعارات</button>
-        </form>
-
-        <a href="/export-all-pdf" class="btn btn-primary">تصدير جميع الإشعارات PDF</a>
-    </div>
-
-    <!-- 3️⃣ Grid عرض الصور -->
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
-        {% for trx in transactions %}
-        <div class="col">
-            <div class="card shadow-sm">
-                {% if trx.image_path %}
-                <img src="{{ trx.image_path }}" class="card-img-top" alt="Receipt Image">
-                {% endif %}
-                <div class="card-body">
-                    <p class="card-text mb-1"><strong>المبلغ:</strong> {{ trx.amount }}</p>
-                    <p class="card-text mb-1"><strong>التاريخ:</strong> {{ trx.trx_date }}</p>
-                    <form action="/delete/{{ trx.id }}" method="post" onsubmit="return confirm('هل تريد حذف هذه الإشعار؟');">
-                        <button type="submit" class="btn btn-sm btn-outline-danger w-100">حذف</button>
+    {% if transactions %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>الصورة</th>
+                <th>المبلغ</th>
+                <th>التاريخ</th>
+                <th>إجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trx in transactions %}
+            <tr>
+                <td>
+                    <a href="{{ '/' + trx.image_path }}" target="_blank">
+                        <img src="{{ '/' + trx.image_path }}" width="80" alt="Receipt">
+                    </a>
+                </td>
+                <td>{{ "%.2f"|format(trx.amount) }}</td>
+                <td>{{ trx.created_at }}</td>
+                <td>
+                    <form action="/delete/{{ trx.id }}" method="post" onsubmit="return confirm('هل أنت متأكد من الحذف؟');">
+                        <button type="submit" class="btn btn-danger btn-sm">حذف</button>
                     </form>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td><strong>الإجمالي</strong></td>
+                <td colspan="3"><strong>{{ "%.2f"|format(total_amount) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info text-center">لا توجد إشعارات محفوظة بعد.</div>
+    {% endif %}
 </div>
 
 <style>
-/* Dashboard Cards */
-.card.text-center {
-    background-color: #f8f9fa;
-    border-radius: 10px;
-    padding: 20px;
-}
-
-/* أزرار الحذف PDF */
-.btn-danger {
-    background-color: #dc3545;
-    border-color: #dc3545;
-    color: #fff;
-}
-.btn-danger:hover {
-    background-color: #b52a37;
-    border-color: #b52a37;
-}
-
-.btn-primary {
-    background-color: #007bff;
-    border-color: #007bff;
-    color: #fff;
-}
-.btn-primary:hover {
-    background-color: #0069d9;
-    border-color: #0062cc;
-}
-
-/* Cards Grid */
-.card img {
-    height: 200px;
-    object-fit: cover;
-}
+.btn-danger { background-color: #d9534f; color: #fff; border: none; padding: 5px 10px; }
+.btn-danger:hover { background-color: #c12e2a; }
 </style>
 {% endblock %}
