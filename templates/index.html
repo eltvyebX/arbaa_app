@@ -1,89 +1,84 @@
 {% extends "base_user.html" %}
 
-{% block title %}إدخال عملية جديدة{% endblock %}
+{% block title %}إدخال إشعار جديد{% endblock %}
 
 {% block content %}
 <div class="card p-4 shadow-sm">
-    <h3 class="mb-4 text-center">إدخال عملية جديدة</h3>
+    <h3 class="mb-4 text-center">إدخال إشعار جديد</h3>
 
-    <form action="/confirm" method="post">
+    <!-- Form to upload new receipt -->
+    <form action="/upload" method="post" enctype="multipart/form-data">
         <div class="mb-3">
-            <label class="form-label fw-bold">رقم العملية (آخر 4 أرقام)</label>
-            <input type="text" class="form-control" name="trx_last4" id="trx_last4" placeholder="مثال: 4892" required
-                        oninput="autoFillDate()">
+            <label class="form-label fw-bold">صورة الإشعار</label>
+            <input type="file" class="form-control" name="file" accept="image/*" required>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label fw-bold">التاريخ والوقت</label>
-            <input type="text" class="form-control" name="date_time" id="date_time" readonly>
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label fw-bold">المبلغ</label>
-            <input type="number" step="0.01" class="form-control" name="amount" required>
-        </div>
-
-        <div class="d-flex flex-column gap-2">
-            <button type="submit" class="btn btn-save-op">حفظ العملية</button>
-
-            <a href="/transactions" class="btn btn-view-txns">
-                عرض المعاملات السابقة
-            </a>
-        </div>
+        <button type="submit" class="btn btn-save-op">رفع وحفظ الإشعار</button>
     </form>
 </div>
 
+<!-- Transactions Table -->
+{% if transactions %}
+<div class="card p-4 mt-4 shadow-sm">
+    <h4 class="mb-3 text-center">الإشعارات السابقة</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>الصورة</th>
+                <th>المبلغ</th>
+                <th>التاريخ</th>
+                <th>إجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trx in transactions %}
+            <tr>
+                <td>
+                    <a href="{{ '/' + trx.image_path }}" target="_blank">
+                        <img src="{{ '/' + trx.image_path }}" alt="Receipt" width="80">
+                    </a>
+                </td>
+                <td>{{ "%.2f"|format(trx.amount) }}</td>
+                <td>{{ trx.created_at }}</td>
+                <td>
+                    <form action="/delete/{{ trx.id }}" method="post" onsubmit="return confirm('هل أنت متأكد من الحذف؟');">
+                        <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td><strong>الإجمالي</strong></td>
+                <td colspan="3"><strong>{{ "%.2f"|format(total_amount) }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info mt-4">
+    لا توجد إشعارات محفوظة بعد.
+</div>
+{% endif %}
+
 <style>
-    /* 1. زر حفظ العملية (الأخضر المصفر #a1bf37) */
-    .btn-save-op {
-        background-color: #a1bf37;
-        border-color: #a1bf37;
-        color: #fff;
-    }
-    .btn-save-op:hover,
-    .btn-save-op:focus {
-        background-color: #8c9b2f; /* درجة أغمق عند التفاعل */
-        border-color: #8c9b2f;
-        color: #fff;
-    }
-
-    /* 2. زر عرض المعاملات السابقة (البنفسجي الداكن #59287f) */
-    .btn-view-txns {
-        background-color: #59287f;
-        border-color: #59287f;
-        color: #fff;
-    }
-    .btn-view-txns:hover,
-    .btn-view-txns:focus {
-        background-color: #4a1f6a; /* درجة أغمق عند التفاعل */
-        border-color: #4a1f6a;
-        color: #fff;
-    }
-</style>
-
-<script>
-function autoFillDate() {
-    const now = new Date();
-    
-    // تنسيق التاريخ: YYYY-MM-DD
-    const datePart = now.getFullYear() + "-" +
-                     String(now.getMonth() + 1).padStart(2, '0') + "-" +
-                     String(now.getDate()).padStart(2, '0');
-    
-    // تنسيق الوقت: HH:MM:SS (صيغة 24 ساعة)
-    const timePart = String(now.getHours()).padStart(2, '0') + ":" +
-                     String(now.getMinutes()).padStart(2, '0') + ":" +
-                     String(now.getSeconds()).padStart(2, '0');
-
-    // 🟢 التعديل: التوحيد ليتناسب مع تنسيق Python: YYYY-MM-DD HH:MM:SS
-    const formatted = datePart + " " + timePart; 
-
-    document.getElementById("date_time").value = formatted;
+.btn-save-op {
+    background-color: #a1bf37;
+    border-color: #a1bf37;
+    color: #fff;
 }
-
-// 💡 ملاحظة: يجب أن يتم تعبئة حقل التاريخ عند تحميل الصفحة أيضًا (من خلال قيمة Jinja المرسلة من دالة index في main.py)
-// إذا كان هذا الملف هو index.html، فسيتم تعبئة الحقل عبر:
-// document.getElementById("date_time").value = "{{ data.date_time }}";
-// ... إذا لم يتم تعبئة الحقل، ستحتاج إلى إضافة دالة Run On Load لتعيين القيمة المبدئية.
-</script>
+.btn-save-op:hover, .btn-save-op:focus {
+    background-color: #8c9b2f;
+    border-color: #8c9b2f;
+    color: #fff;
+}
+.btn-danger {
+    background-color: #d9534f;
+    border-color: #d43f3a;
+    color: #fff;
+}
+.btn-danger:hover, .btn-danger:focus {
+    background-color: #c12e2a;
+    border-color: #a12a26;
+    color: #fff;
+}
+</style>
 {% endblock %}
