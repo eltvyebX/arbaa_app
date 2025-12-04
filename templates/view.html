@@ -1,54 +1,89 @@
 {% extends "base_user.html" %}
 
-{% block title %}سجل العمليات{% endblock %}
+{% block title %}عرض الإشعارات{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>سجل العمليات</h3>
-    <a href="/index" class="btn btn-sm btn-primary">+ عملية جديدة</a>
-</div>
+<div class="container mt-4">
 
-{% if transactions %}
-<div class="card overflow-hidden shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-striped table-hover mb-0 text-center">
-            <thead class="table-dark">
-                <tr>
-                    <th>رقم العملية (آخر 4 أرقام)</th>
-                    <th>التاريخ والوقت</th>
-                    <th>المبلغ</th>
-                    <th>حذف</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for trx in transactions %}
-                <tr>
-                    <td>{{ trx.trx_last4 }}</td>
-                    <td>{{ trx.trx_date }}</td>
-                    <td class="fw-bold text-success">{{ "%.2f"|format(trx.amount) }}</td>
-                    <td>
-                        <form action="/delete/{{ trx.id }}" method="post" onsubmit="return confirm('هل تريد حذف هذه العملية؟');">
-                            <button type="submit" class="btn btn-sm btn-danger">X</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr class="table-info fw-bold">
-                    <td colspan="2" class="text-end">الإجمالي الكلي:</td>
-                    <td class="text-success">{{ "%.2f"|format(total_amount) }}</td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        </table>
+    <!-- 1️⃣ Dashboard -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card text-center p-3 shadow-sm">
+                <h4>عدد الإشعارات</h4>
+                <h2>{{ transactions|length }}</h2>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card text-center p-3 shadow-sm">
+                <h4>إجمالي المبالغ</h4>
+                <h2>{{ total_amount }} SAR</h2>
+            </div>
+        </div>
     </div>
 
-    <div class="d-flex justify-content-end mt-3 p-2">
-        <a href="/export-pdf" class="btn btn-success">تصدير PDF للسجل</a>
+    <!-- 2️⃣ أزرار حذف جميع الصور وتصدير PDF -->
+    <div class="mb-4 d-flex gap-2">
+        <form action="/delete_all" method="post" onsubmit="return confirm('هل أنت متأكد من حذف جميع الصور؟');">
+            <button type="submit" class="btn btn-danger">حذف جميع الإشعارات</button>
+        </form>
+
+        <a href="/export-all-pdf" class="btn btn-primary">تصدير جميع الإشعارات PDF</a>
+    </div>
+
+    <!-- 3️⃣ Grid عرض الصور -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+        {% for trx in transactions %}
+        <div class="col">
+            <div class="card shadow-sm">
+                {% if trx.image_path %}
+                <img src="{{ trx.image_path }}" class="card-img-top" alt="Receipt Image">
+                {% endif %}
+                <div class="card-body">
+                    <p class="card-text mb-1"><strong>المبلغ:</strong> {{ trx.amount }}</p>
+                    <p class="card-text mb-1"><strong>التاريخ:</strong> {{ trx.trx_date }}</p>
+                    <form action="/delete/{{ trx.id }}" method="post" onsubmit="return confirm('هل تريد حذف هذه الإشعار؟');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger w-100">حذف</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
 </div>
-{% else %}
-<div class="alert alert-warning text-center">لا توجد بيانات.</div>
-{% endif %}
+
+<style>
+/* Dashboard Cards */
+.card.text-center {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+/* أزرار الحذف PDF */
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
+}
+.btn-danger:hover {
+    background-color: #b52a37;
+    border-color: #b52a37;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: #fff;
+}
+.btn-primary:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+/* Cards Grid */
+.card img {
+    height: 200px;
+    object-fit: cover;
+}
+</style>
 {% endblock %}
