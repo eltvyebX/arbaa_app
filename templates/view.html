@@ -1,6 +1,6 @@
 {% extends "base_user.html" %}
 
-{% block title %}عرض الإشعارات{% endblock %}
+{% block title %}الإشعارات السابقة{% endblock %}
 
 {% block content %}
 <div class="card p-4 shadow-sm">
@@ -19,11 +19,9 @@
         <tbody>
             {% for trx in transactions %}
             <tr>
-                <td>
-                    <a href="{{ '/' + trx.image_path }}" target="_blank">
-                        <img src="{{ '/' + trx.image_path }}" width="80" alt="Receipt">
-                    </a>
-                </td>
+                <td><a href="{{ '/' + trx.image_path }}" target="_blank">
+                    <img src="{{ '/' + trx.image_path }}" width="80">
+                </a></td>
                 <td>{{ "%.2f"|format(trx.amount) }}</td>
                 <td>{{ trx.created_at }}</td>
                 <td>
@@ -40,12 +38,12 @@
         </tbody>
     </table>
     {% else %}
-    <div class="alert alert-info text-center">لا توجد إشعارات محفوظة بعد.</div>
+    <div class="alert alert-info">لا توجد إشعارات محفوظة بعد.</div>
     {% endif %}
 </div>
 
 <style>
-.btn-danger { background-color: #d9534f; color: #fff; border: none; padding: 5px 10px; }
-.btn-danger:hover { background-color: #c12e2a; }
+.btn-danger { background-color:#d9534f; color:#fff; }
+.btn-danger:hover { background-color:#c12e2a; }
 </style>
 {% endblock %}
