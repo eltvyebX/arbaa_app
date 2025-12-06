@@ -96,7 +96,7 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
 # ------------------------
 # صفحة التقاط الإشعار
 # ------------------------
-@app.get("/index")
+@app.get("/index") 
 def index(request: Request):
     user_id = request.cookies.get("current_user")
     if not user_id:
