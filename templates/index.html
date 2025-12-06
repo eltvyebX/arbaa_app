@@ -1,65 +1,146 @@
 {% extends "base_user.html" %}
-{% block title %}التقاط الإشعار{% endblock %}
+
+{% block title %}التقاط إشعار جديد{% endblock %}
 
 {% block content %}
-<div class="card p-3 text-center">
 
-    <h4 class="mb-3">التقاط صورة الإشعار</h4>
+<style>
+    /* الحاوية الأساسية */
+    .capture-container {
+        text-align: center;
+        padding: 15px;
+    }
 
-    <video id="camera" autoplay playsinline style="width:100%; border-radius:10px;"></video>
+    /* عنوان الصفحة */
+    .capture-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #59287f;
+        margin-bottom: 10px;
+    }
 
-    <!-- زر التقاط -->
-    <button id="captureBtn" class="btn btn-primary w-100 mt-3">
-        التقاط الصورة
-    </button>
+    .capture-text {
+        font-size: 15px;
+        color: #666;
+        margin-bottom: 25px;
+    }
 
-    <!-- الفورم الذي يرسل الصورة -->
-    <form id="captureForm" method="POST" action="/upload_capture">
-        <input type="hidden" name="captured_image" id="captured_image">
-    </form>
+    /* زر التقاط الصورة */
+    .btn-capture {
+        background-color: #59287f;
+        color: #fff;
+        font-weight: bold;
+        padding: 14px;
+        width: 100%;
+        border-radius: 12px;
+        font-size: 18px;
+        border: none;
+        margin-bottom: 15px;
+    }
 
-    <hr class="my-3">
+    .btn-capture:hover {
+        background-color: #4a1f6a;
+    }
 
-    <!-- زر الذهاب لصفحة view -->
-    <a href="/view" class="btn btn-secondary w-100">عرض الإشعارات</a>
+    /* زر عرض الإشعارات */
+    .btn-view {
+        background-color: #ffffff;
+        color: #59287f;
+        font-weight: bold;
+        padding: 12px;
+        width: 100%;
+        border-radius: 12px;
+        font-size: 17px;
+        border: 2px solid #59287f;
+    }
+
+    .btn-view:hover {
+        background-color: #f7f3fa;
+    }
+
+    /* الفيديو الخاص بالكاميرا */
+    #camera {
+        width: 100%;
+        height: auto;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        background: #000;
+    }
+
+    /* الصورة الملتقطة */
+    #captured-image {
+        width: 100%;
+        margin-top: 15px;
+        border-radius: 12px;
+        display: none;
+    }
+
+    @media (min-width: 768px) {
+        .capture-container {
+            max-width: 500px;
+            margin: auto;
+        }
+    }
+</style>
+
+<div class="capture-container">
+
+    <h2 class="capture-title">التقاط إشعار جديد</h2>
+    <p class="capture-text">قم بتوجيه الكاميرا نحو الإشعار ثم اضغط على زر التقاط.</p>
+
+    <!-- بث الكاميرا -->
+    <video id="camera" autoplay playsinline></video>
+
+    <!-- زر التقاط الصورة -->
+    <button id="capture-btn" class="btn-capture">📷 التقاط الإشعار</button>
+
+    <!-- الصورة الملتقطة -->
+    <img id="captured-image">
+
+    <!-- زر الذهاب إلى صفحة عرض الإشعارات -->
+    <a href="/view" class="btn-view">📄 عرض الإشعارات</a>
+
 </div>
 
-<canvas id="canvas" style="display:none;"></canvas>
-
-{% endblock %}
-
-{% block scripts %}
 <script>
-    const video = document.getElementById("camera");
-    const canvas = document.getElementById("canvas");
-    const captureBtn = document.getElementById("captureBtn");
-    const hiddenInput = document.getElementById("captured_image");
-    const form = document.getElementById("captureForm");
-
     // تشغيل الكاميرا
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(stream => video.srcObject = stream)
-        .catch(err => alert("لا يمكن تشغيل الكاميرا: " + err));
+    const camera = document.getElementById("camera");
+    const captureBtn = document.getElementById("capture-btn");
+    const capturedImage = document.getElementById("captured-image");
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }})
+        .then(stream => camera.srcObject = stream)
+        .catch(err => alert("تعذر الوصول إلى الكاميرا: " + err));
 
     // التقاط الصورة
-    captureBtn.addEventListener("click", () => {
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-
-        canvas.width = w;
-        canvas.height = h;
+    captureBtn.onclick = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = camera.videoWidth;
+        canvas.height = camera.videoHeight;
 
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, w, h);
+        ctx.drawImage(camera, 0, 0);
 
-        // تحويل الصورة base64
-        const dataURL = canvas.toDataURL("image/png");
+        const imgData = canvas.toDataURL("image/jpeg");
 
-        // وضعها في input
-        hiddenInput.value = dataURL;
+        capturedImage.src = imgData;
+        capturedImage.style.display = "block";
 
-        // إرسال الفورم
-        form.submit();
-    });
+        // إرسال الصورة إلى السيرفر
+        fetch("/capture_image", {
+            method: "POST",
+            body: JSON.stringify({ image_data: imgData }),
+            headers: { "Content-Type": "application/json" }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert("✔ تم حفظ الإشعار بنجاح");
+            } else {
+                alert("خطأ في حفظ الإشعار");
+            }
+        });
+    };
 </script>
+
 {% endblock %}
