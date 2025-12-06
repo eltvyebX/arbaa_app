@@ -6,23 +6,25 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-import pytesseract
 from PIL import Image
 import io
+import pytesseract
 import re
 
 app = FastAPI()
-
 DB_NAME = "bank_receipts.db"
+
+# مجلد حفظ الإشعارات
 RECEIPTS_DIR = "receipts"
 os.makedirs(RECEIPTS_DIR, exist_ok=True)
 
+# Templates + Static
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount(f"/{RECEIPTS_DIR}", StaticFiles(directory=RECEIPTS_DIR), name="receipts")
 
 # ------------------------
-# قاعدة البيانات
+# تهيئة قاعدة البيانات
 # ------------------------
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
@@ -31,7 +33,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT UNIQUE,
-                bank_account TEXT,
+                bank_account TEXT UNIQUE,
                 pin TEXT
             )
         """)
@@ -57,42 +59,32 @@ def start_page(request: Request):
     return templates.TemplateResponse("start_page.html", {"request": request})
 
 # ------------------------
-# تسجيل مستخدم جديد
+# صفحة تسجيل مستخدم جديد
 # ------------------------
 @app.get("/register")
 def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    return templates.TemplateResponse("register.html", {"request": request, "user_id": ""})
 
 @app.post("/register")
-def register_user(request: Request, bank_account: str = Form(...)):
+def register_user(request: Request,
+                  bank_account: str = Form(...)):
+
+    # توليد user_id و pin عشوائي
     import random, string
-    # توليد user_id و PIN
     user_id = "USR-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
     pin = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
+    # إضافة المستخدم إلى قاعدة البيانات
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
         c.execute("INSERT INTO users (user_id, bank_account, pin) VALUES (?, ?, ?)",
                   (user_id, bank_account, pin))
         conn.commit()
 
-    # إعادة التوجيه لعرض الـ PIN
-    response = RedirectResponse("/show_pin", status_code=303)
-    response.set_cookie(key="new_user_id", value=user_id)
-    response.set_cookie(key="new_user_pin", value=pin)
-    return response
-
-# ------------------------
-# عرض PIN بعد التسجيل
-# ------------------------
-@app.get("/show_pin")
-def show_pin(request: Request):
-    user_id = request.cookies.get("new_user_id")
-    pin = request.cookies.get("new_user_pin")
     return templates.TemplateResponse("show_pin.html", {"request": request, "user_id": user_id, "pin": pin})
 
 # ------------------------
-# تسجيل الدخول
+# صفحة تسجيل الدخول
 # ------------------------
 @app.get("/login")
 def login_page(request: Request):
@@ -110,10 +102,13 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
             response.set_cookie(key="current_user", value=user_id)
             return response
         else:
-            return templates.TemplateResponse("login.html", {"request": request, "error": "بيانات غير صحيحة"})
+            return templates.TemplateResponse("login.html", {
+                "request": request,
+                "error": "رقم الحساب أو الرقم السري غير صحيح"
+            })
 
 # ------------------------
-# صفحة التقاط الإشعارات
+# صفحة التقاط الإشعار (index)
 # ------------------------
 @app.get("/index")
 def index(request: Request):
@@ -123,48 +118,56 @@ def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 # ------------------------
-# حفظ صورة الإشعار + OCR لاستخراج المبلغ
+# استقبال الصورة وحفظها + OCR
 # ------------------------
 @app.post("/capture_image")
 async def capture_image(request: Request):
     data = await request.json()
-    img_data = data.get("image_data")
     user_id_str = request.cookies.get("current_user")
-    if not img_data or not user_id_str:
-        return JSONResponse({"success": False, "error": "No image or user"})
+    if not user_id_str:
+        return JSONResponse({"success": False, "error": "Not logged in"})
 
-    user_id = int(user_id_str)
-    header, encoded = img_data.split(",", 1)
+    try:
+        user_id = int(user_id_str)
+    except ValueError:
+        return JSONResponse({"success": False, "error": "Invalid user id"})
+
+    image_data = data.get("image_data")
+    if not image_data:
+        return JSONResponse({"success": False, "error": "No image data provided"})
+
+    # حفظ الصورة
+    header, encoded = image_data.split(",", 1)
     image_bytes = base64.b64decode(encoded)
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     filename = f"{user_id}_{timestamp}.png"
     filepath = os.path.join(RECEIPTS_DIR, filename)
-
-    # حفظ الصورة
     with open(filepath, "wb") as f:
         f.write(image_bytes)
 
     # OCR لاستخراج المبلغ
     try:
         img = Image.open(io.BytesIO(image_bytes))
-        text = pytesseract.image_to_string(img, lang="eng+ara")
-        # البحث عن كلمة المبلغ و الرقم بعدها
-        amount_match = re.search(r"(?i)المبلغ[:\s]*([\d.,]+)", text)
-        amount = float(amount_match.group(1).replace(",", ".")) if amount_match else 0.0
+        text = pytesseract.image_to_string(img, lang='eng+ara')
+        # البحث عن الرقم بعد كلمة "المبلغ" أو "Amount"
+        match = re.search(r'(?:المبلغ|Amount)[^\d]*(\d+(?:\.\d+)?)', text)
+        amount = float(match.group(1)) if match else 0.0
     except Exception as e:
         amount = 0.0
 
-    # حفظ المسار والمبلغ في قاعدة البيانات
+    # حفظ المعاملة
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
-        c.execute("INSERT INTO transactions (user_id, image_path, amount, created_at) VALUES (?, ?, ?, ?)",
-                  (user_id, filepath, amount, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        c.execute(
+            "INSERT INTO transactions (user_id, image_path, amount, created_at) VALUES (?, ?, ?, ?)",
+            (user_id, filepath, amount, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
         conn.commit()
 
-    return JSONResponse({"success": True, "amount": amount})
+    return JSONResponse({"success": True})
 
 # ------------------------
-# عرض الإشعارات وDashboard
+# عرض الإشعارات مع إجمالي المبالغ
 # ------------------------
 @app.get("/view")
 def view_transactions(request: Request):
@@ -178,32 +181,10 @@ def view_transactions(request: Request):
         c = conn.cursor()
         c.execute("SELECT * FROM transactions WHERE user_id=? ORDER BY id DESC", (user_id,))
         trs = c.fetchall()
-
-    total_amount = sum([float(t["amount"]) for t in trs]) if trs else 0
+        total_amount = sum([float(t["amount"]) for t in trs]) if trs else 0.0
 
     return templates.TemplateResponse("view.html", {
         "request": request,
         "transactions": trs,
         "total_amount": total_amount
     })
-
-# ------------------------
-# حذف إشعار
-# ------------------------
-@app.post("/delete/{id}")
-def delete_transaction(id: int, request: Request):
-    user_id_str = request.cookies.get("current_user")
-    if not user_id_str:
-        return RedirectResponse("/login", status_code=303)
-    user_id = int(user_id_str)
-
-    with sqlite3.connect(DB_NAME) as conn:
-        c = conn.cursor()
-        c.execute("SELECT image_path FROM transactions WHERE id=? AND user_id=?", (id, user_id))
-        row = c.fetchone()
-        if row and row[0] and os.path.exists(row[0]):
-            os.remove(row[0])
-        c.execute("DELETE FROM transactions WHERE id=? AND user_id=?", (id, user_id))
-        conn.commit()
-
-    return RedirectResponse("/view", status_code=303)
