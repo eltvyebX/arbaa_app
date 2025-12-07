@@ -1,4 +1,3 @@
-# main.py
 import os
 import re
 import sqlite3
@@ -19,7 +18,7 @@ import pytesseract
 app = FastAPI()
 DB_NAME = "bank_receipts.db"
 
-# سنخزن الصور داخل static/receipts حتى تكون سهلة العرض عبر القالب
+# مسار تخزين الصور
 RECEIPTS_DIR = os.path.join("static", "receipts")
 os.makedirs(RECEIPTS_DIR, exist_ok=True)
 os.makedirs("templates", exist_ok=True)
@@ -68,23 +67,13 @@ def calculate_total_amount_for_user(user_id: int) -> float:
 
 
 def preprocess_for_ocr(pil_img: Image.Image) -> Image.Image:
-    """
-    تحسين بسيط للصورة لجعل OCR أكثر دقة على خلفية بيضاء:
-    - تحويل للـ grayscale
-    - تعزيز التباين (autocontrast)
-    - مرشحات للتوضيح
-    - تطبيق threshold (عتبة) بسيطة
-    """
     try:
-        img = pil_img.convert("L")  # to grayscale
-        img = ImageOps.autocontrast(img, cutoff=1)  # remove extreme pixels
+        img = pil_img.convert("L")  # grayscale
+        img = ImageOps.autocontrast(img, cutoff=1)
         img = img.filter(ImageFilter.SHARPEN)
-        # تطبيق عتبة بسيطة: يجعل الخلفية بيضاء والنص أسود
-        # قيمة العتبة 200 تعمل غالبًا جيدة مع خلفية بيضاء واضحة
         threshold = 200
         fn = lambda x: 255 if x > threshold else 0
         img = img.point(fn, "L")
-        # إعادة تحسين بسيط
         img = ImageOps.autocontrast(img, cutoff=0)
         return img
     except Exception:
@@ -92,31 +81,22 @@ def preprocess_for_ocr(pil_img: Image.Image) -> Image.Image:
 
 
 def extract_amount_from_text(text: str) -> float:
-    """
-    بحث مرن عن الرقم المقابل لكلمة 'المبلغ' أو 'Amount' داخل النص.
-    يعيد 0.0 إذا لم يعثر على قيمة صالحة.
-    """
     if not text:
         return 0.0
 
-    # تنظيف النص
     txt = text.replace('\n', ' ').replace('\r', ' ')
-    # أولاً: البحث عن كلمة المبلغ باللغة العربية أو الإنجليزية ثم رقم
     patterns = [
-        r'(?:المبلغ|المبلع|الإجمالي|إجمالي|رصيد)\s*[:\-]?\s*([\d{1,3}][\d\.,\s]{0,20}\d)',  # عربي
-        r'(?:Amount|Total|Balance|Value)\s*[:\-]?\s*([\d{1,3}][\d\.,\s]{0,20}\d)',        # إنجليزي
-        r'([\d{1,3}](?:[,\s]\d{3})*(?:[.,]\d{1,3})?)'                                   # رقم عام
+        r'(?:المبلغ|المبلع|الإجمالي|إجمالي|رصيد)\s*[:\-]?\s*([\d{1,3}][\d\.,\s]{0,20}\d)',
+        r'(?:Amount|Total|Balance|Value)\s*[:\-]?\s*([\d{1,3}][\d\.,\s]{0,20}\d)',
+        r'([\d{1,3}](?:[,\s]\d{3})*(?:[.,]\d{1,3})?)'
     ]
 
     for pat in patterns:
         m = re.search(pat, txt, flags=re.IGNORECASE)
         if m:
             raw = m.group(1)
-            # تنظيف الرمز
             cleaned = raw.replace(' ', '').replace(',', '.')
-            # إزالة أي حروف غير رقمية أو نقاط
             cleaned = re.sub(r'[^\d\.]', '', cleaned)
-            # التأكد من وجود رقم صالح
             try:
                 return float(cleaned)
             except Exception:
@@ -125,7 +105,7 @@ def extract_amount_from_text(text: str) -> float:
     return 0.0
 
 
-# ---------- صفحات المستخدم (Start / Register / Show PIN / Login) ----------
+# ---------- صفحات المستخدم ----------
 @app.get("/")
 def start_page(request: Request):
     return templates.TemplateResponse("start_page.html", {"request": request})
@@ -147,8 +127,8 @@ def register_user(request: Request, bank_account: str = Form(...)):
             c.execute("INSERT INTO users (user_id, bank_account, pin) VALUES (?, ?, ?)",
                       (user_id, bank_account, pin))
             conn.commit()
+            last_id = c.lastrowid
     except sqlite3.IntegrityError:
-        # حساب/مستخدم مكرر
         return templates.TemplateResponse("register.html", {
             "request": request,
             "error": "رقم الحساب مستخدم مسبقًا. استخدم حسابًا آخر أو تواصل معي.",
@@ -162,8 +142,10 @@ def register_user(request: Request, bank_account: str = Form(...)):
             "user_id": ""
         })
 
-    # عرض صفحة الـ PIN (تُعرض مرة واحدة)
-    return templates.TemplateResponse("show_pin.html", {"request": request, "user_id": user_id, "pin": pin})
+    # تعيين cookie تلقائي بعد التسجيل
+    response = templates.TemplateResponse("show_pin.html", {"request": request, "user_id": user_id, "pin": pin})
+    response.set_cookie(key="current_user", value=str(last_id), httponly=True, samesite="lax", max_age=3600*24)
+    return response
 
 
 @app.get("/login")
@@ -182,7 +164,7 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
             if row:
                 user_db_id = str(row["id"])
                 response = RedirectResponse(url="/index", status_code=303)
-                response.set_cookie(key="current_user", value=user_db_id)
+                response.set_cookie(key="current_user", value=user_db_id, httponly=True, samesite="lax", max_age=3600*24)
                 return response
             else:
                 return templates.TemplateResponse("login.html", {"request": request, "error": "بيانات الدخول غير صحيحة."})
@@ -191,24 +173,23 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
         return templates.TemplateResponse("login.html", {"request": request, "error": "حدث خطأ أثناء محاولة تسجيل الدخول."})
 
 
-# ---------- صفحة التقاط الاشعار (index) ----------
+# ---------- صفحة التقاط الاشعار ----------
 @app.get("/index")
 def index(request: Request):
     user_id = request.cookies.get("current_user")
     if not user_id:
         return RedirectResponse("/login", status_code=303)
-    # تمرير التاريخ الحالي كي يتم عرضه إذا رغبت
+    try:
+        user_id_int = int(user_id)
+    except ValueError:
+        return RedirectResponse("/login", status_code=303)
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return templates.TemplateResponse("index.html", {"request": request, "data": {"date_time": current_time}})
 
 
-# ---------- حفظ صورة ملتقطة من الكاميرا (capture) - يتم استدعاؤها بالـ fetch من الـ frontend ----------
+# ---------- حفظ صورة ملتقطة من الكاميرا ----------
 @app.post("/capture_image")
 async def capture_image(request: Request):
-    """
-    يتوقع JSON { "image_data": "data:image/png;base64,...." }
-    يقوم بحفظ الصورة، تطبيق معالجة، تشغيل OCR لاستخراج المبلغ، ثم حفظ السجل في DB.
-    """
     try:
         payload = await request.json()
         image_data = payload.get("image_data")
@@ -227,9 +208,8 @@ async def capture_image(request: Request):
     if not image_data:
         return JSONResponse({"success": False, "error": "No image_data provided"}, status_code=400)
 
-    # تفكيك البادئة base64
     if "," in image_data:
-        header, b64 = image_data.split(",", 1)
+        _, b64 = image_data.split(",", 1)
     else:
         b64 = image_data
 
@@ -238,7 +218,6 @@ async def capture_image(request: Request):
     except Exception:
         return JSONResponse({"success": False, "error": "Invalid base64 image"}, status_code=400)
 
-    # حفظ الملف باسم فريد
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     filename = f"{user_id_int}_{timestamp}.png"
     filepath = os.path.join(RECEIPTS_DIR, filename)
@@ -250,22 +229,18 @@ async def capture_image(request: Request):
         traceback.print_exc()
         return JSONResponse({"success": False, "error": "Failed saving file"}, status_code=500)
 
-    # قراءة الصورة من البايت وتشغيل المعالجة ثم OCR
     try:
         img = Image.open(filepath)
         processed = preprocess_for_ocr(img)
-        # استخدم tesseract لاستخراج النص (دعم العربية + إنجليزي إن أمكن)
         try:
             txt = pytesseract.image_to_string(processed, lang="ara+eng")
         except Exception:
-            # fallback بدون تحديد لغة
             txt = pytesseract.image_to_string(processed)
         amount = extract_amount_from_text(txt)
     except Exception:
         traceback.print_exc()
         amount = 0.0
 
-    # حفظ السجل في قاعدة البيانات (image_path نحفظ المسار داخل static/receipts)
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         with sqlite3.connect(DB_NAME) as conn:
@@ -277,20 +252,26 @@ async def capture_image(request: Request):
             conn.commit()
     except Exception:
         traceback.print_exc()
-        # رغم الخطأ في الحفظ في DB الصورة محفوظة على الأقل؛ نبلغ العميل بفشل DB
         return JSONResponse({"success": False, "error": "Saved image but failed to record transaction"}, status_code=500)
 
     return JSONResponse({"success": True, "amount": float(amount), "filename": filename})
 
 
-# ---------- رفع ملف صورة (بديل لمسح الكاميرا) - endpoint /scan ----------
+# ---------- رفع ملف صورة (بديل لمسح الكاميرا) ----------
 @app.post("/scan")
-async def scan_receipt(file: UploadFile = File(...)):
-    # يحفظ الملف مؤقتًا ثم يستدعي نفس المنطق لاستخراج المبلغ
+async def scan_receipt(request: Request, file: UploadFile = File(...)):
+    user_id = request.cookies.get("current_user")
+    if not user_id:
+        return JSONResponse({"success": False, "error": "Not logged in"}, status_code=401)
+    try:
+        user_id_int = int(user_id)
+    except ValueError:
+        return JSONResponse({"success": False, "error": "Invalid user id"}, status_code=400)
+
     try:
         contents = await file.read()
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        filename = f"upload_{timestamp}_{file.filename}"
+        filename = f"{user_id_int}_{timestamp}_{file.filename}"
         filepath = os.path.join(RECEIPTS_DIR, filename)
         with open(filepath, "wb") as f:
             f.write(contents)
@@ -303,11 +284,10 @@ async def scan_receipt(file: UploadFile = File(...)):
             txt = pytesseract.image_to_string(processed)
         amount = extract_amount_from_text(txt)
 
-        # هنا لا نربط بالمستخدم — إذا أردت الربط بالمستخدم ضع cookie current_user أو مرره
         with sqlite3.connect(DB_NAME) as conn:
             c = conn.cursor()
             c.execute("INSERT INTO transactions (user_id, image_path, amount, created_at) VALUES (?, ?, ?, ?)",
-                      (None, filepath, float(amount), datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                      (user_id_int, filepath, float(amount), datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             conn.commit()
 
         return {"success": True, "amount": float(amount), "filename": filename}
@@ -316,7 +296,7 @@ async def scan_receipt(file: UploadFile = File(...)):
         return {"success": False, "error": "Failed to process upload"}
 
 
-# ---------- صفحة العرض view (صور الإيصالات + إجمالي المبالغ وعدد الصور) ----------
+# ---------- صفحة العرض view ----------
 @app.get("/view")
 def view_receipts(request: Request):
     user_id = request.cookies.get("current_user")
@@ -338,7 +318,7 @@ def view_receipts(request: Request):
         rows = []
 
     images = [os.path.basename(r["image_path"]) for r in rows if r["image_path"]]
-    total_images = len(os.listdir("static/receipts"))
+    total_images = len(images)
     total_amount = sum([float(r["amount"] or 0) for r in rows]) if rows else 0.0
 
     return templates.TemplateResponse("view.html", {
@@ -366,7 +346,7 @@ def delete_transaction(id: int, request: Request):
     return RedirectResponse("/view", status_code=303)
 
 
-# ---------- حذف كل الإشعارات للمستخدم ----------
+# ---------- حذف كل الإشعارات ----------
 @app.post("/delete_all")
 def delete_all(request: Request):
     user_id = request.cookies.get("current_user")
@@ -396,16 +376,14 @@ def delete_all(request: Request):
     return RedirectResponse("/view", status_code=303)
 
 
-# ---------- export pdf (اختياري) ----------
+# ---------- export pdf ----------
 @app.get("/export_pdf")
 def export_pdf(request: Request):
-    # يمكنك تخصيص هذا لاحقًا - هنا مجرد placeholder يعيد Redirect إلى /view
     return RedirectResponse("/view", status_code=303)
 
 
 # ---------- تشغيل محلي ----------
 if __name__ == "__main__":
     import uvicorn
-    # إذا كنت على Windows وقد ثبتت Tesseract في مسار افتراضي قم بتعيينه هنا:
     # pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
