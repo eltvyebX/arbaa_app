@@ -338,7 +338,7 @@ def view_receipts(request: Request):
         rows = []
 
     images = [os.path.basename(r["image_path"]) for r in rows if r["image_path"]]
-    total_images = len(images)
+    total_images = len(os.listdir("static/receipts"))
     total_amount = sum([float(r["amount"] or 0) for r in rows]) if rows else 0.0
 
     return templates.TemplateResponse("view.html", {
