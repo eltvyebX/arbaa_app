@@ -16,7 +16,6 @@ RECEIPTS_DIR = os.path.join("static", "receipts")
 os.makedirs(RECEIPTS_DIR, exist_ok=True)
 os.makedirs("templates", exist_ok=True)
 os.makedirs("static", exist_ok=True)
-
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
