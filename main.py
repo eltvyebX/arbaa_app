@@ -111,8 +111,16 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
         traceback.print_exc()
         return templates.TemplateResponse("login.html", {"request": request, "error": "حدث خطأ أثناء تسجيل الدخول."})
 
+# ------------------------------
+#   ROUTE: INDEX (DO NOT TOUCH)
+# ------------------------------
+@app.get("/index", response_class=HTMLResponse)
+def index_page(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
 
 # ---------- API لاستقبال الصور + المبلغ من الهاتف ----------
+
 @app.post("/upload_from_phone")
 async def upload_from_phone(request: Request):
     """
