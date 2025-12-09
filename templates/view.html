@@ -1,50 +1,112 @@
 {% extends "base_user.html" %}
-{% block title %}لوحة الإشعارات{% endblock %}
+
+{% block title %}لوحة الإيصالات{% endblock %}
+
 {% block content %}
 
 <div class="card p-3 shadow-sm text-center">
 
     <h3 class="mb-3">لوحة الإيصالات</h3>
 
+    <!-- Dashboard Boxes -->
     <div class="row text-center mb-4">
         <div class="col-6">
             <div class="stats-box p-3">
-                <h5>عدد الإشعارات</h5>
-                <h2>{{ total_images }}</h2>
+                <h5 class="text-muted">عدد الإشعارات</h5>
+                <h2 class="fw-bold">{{ total_images }}</h2>
             </div>
         </div>
 
         <div class="col-6">
             <div class="stats-box p-3">
-                <h5>إجمالي المبالغ</h5>
-                <h2 style="color:#59287f;">{{ total_amount }}</h2>
+                <h5 class="text-muted">إجمالي المبالغ</h5>
+                <h2 class="fw-bold" style="color:#59287f;">{{ total_amount }}</h2>
             </div>
         </div>
     </div>
 
+    <!-- زر الرجوع -->
     <a href="/index" class="btn btn-primary w-100 mb-3">التقاط إشعار جديد</a>
 
-    <form method="post" action="/delete_all">
-        <button class="btn btn-danger w-100"
-                onclick="return confirm('هل تريد حذف كل الإشعارات؟');">حذف الكل</button>
-    </form>
+    <!-- زر حذف جميع الصور -->
+    <a href="/delete_all" class="btn btn-danger w-100 mb-3"
+       onclick="return confirm('هل أنت متأكد من حذف جميع الإشعارات؟');">
+        حذف جميع الصور
+    </a>
+
+    <!-- زر تصدير PDF -->
+    <a href="/export_pdf" class="btn btn-success w-100 mb-4">
+        تصدير جميع الإشعارات PDF
+    </a>
 
     <hr>
 
-    <h5 class="mt-3 mb-3">صور الإيصالات</h5>
+    <h5 class="mt-3 mb-3">صور الإشعارات</h5>
 
     {% if images %}
-        <div class="images-grid">
-            {% for item in images %}
+    <div class="images-grid">
+        {% for img in images %}
             <div class="img-card">
-                <img src="/static/receipts/{{ item.file }}">
-                <p class="fw-bold mt-2">المبلغ: {{ item.amount }}</p>
+                <img src="/static/receipts/{{ img }}" alt="Receipt Image">
+                <p class="amount-label">المبلغ: {{ transactions[loop.index0].amount }}</p>
             </div>
-            {% endfor %}
-        </div>
+        {% endfor %}
+    </div>
     {% else %}
-        <p>لا توجد إشعارات بعد.</p>
+        <p class="text-muted">لا توجد إشعارات محفوظة حتى الآن.</p>
     {% endif %}
 
 </div>
+
+<style>
+    .stats-box {
+        background: #f8f9fa;
+        border-radius: 10px;
+        border: 1px solid #ddd;
+    }
+
+    /* شبكة صور متجاوبة 100% */
+    .images-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+        padding-bottom: 20px;
+    }
+
+    /* كرت الصورة */
+    .img-card {
+        background: white;
+        padding: 10px;
+        border-radius: 12px;
+        box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    /* تصغير الصورة لتناسب الهاتف */
+    .img-card img {
+        width: 100%;
+        max-height: 160px;
+        object-fit: contain;
+        border-radius: 8px;
+    }
+
+    /* المبلغ تحت الصورة */
+    .amount-label {
+        margin-top: 8px;
+        font-weight: bold;
+        color: #59287f;
+        font-size: 14px;
+    }
+
+    @media (max-width: 480px) {
+        .images-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .img-card img {
+            max-height: 130px;
+        }
+    }
+</style>
+
 {% endblock %}
