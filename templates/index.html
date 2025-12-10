@@ -8,8 +8,13 @@
 
     <h3 class="mb-3">التقاط صورة الإشعار</h3>
 
-    <!-- الفيديو للكاميرا -->
-    <video id="camera" autoplay playsinline style="width:100%; border-radius:10px;"></video>
+    <!-- الفيديو -->
+    <video id="camera" autoplay playsinline style="width:100%; border-radius:10px; background:#000;"></video>
+
+    <!-- رسالة الخطأ -->
+    <div id="cameraError" class="alert alert-warning mt-3" style="display:none;">
+        لم أستطع الوصول إلى الكاميرا الخلفية. قد يتم استخدام الكاميرا الأمامية بدلاً منها.
+    </div>
 
     <!-- زر الالتقاط -->
     <button id="captureBtn" class="btn btn-primary w-100 mt-3" 
@@ -20,11 +25,11 @@
     <!-- الصورة الملتقطة -->
     <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
-    <!-- إدخال المبلغ بعد التقاط الصورة -->
+    <!-- إدخال المبلغ -->
     <input id="amountInput" class="form-control mt-3" 
            placeholder="أدخل المبلغ يدوياً">
 
-    <!-- حفظ العملية -->
+    <!-- حفظ -->
     <button id="saveBtn" class="btn btn-success w-100 mt-3" disabled>
         حفظ العملية
     </button>
@@ -41,27 +46,57 @@
     const canvas = document.getElementById("snapshotCanvas");
     const captureBtn = document.getElementById("captureBtn");
     const saveBtn = document.getElementById("saveBtn");
+    const camError = document.getElementById("cameraError");
 
-    // ---------- فتح الكاميرا الخلفية ----------
-    navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { exact: "environment" } }, 
-        audio: false
-    }).then(stream => {
-        video.srcObject = stream;
-    }).catch(err => {
-        alert("لم أستطع الوصول إلى الكاميرا الخلفية: " + err);
-    });
+    async function startCamera() {
+        try {
+            // نحاول الكاميرا الخلفية
+            const rearStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+                audio: false
+            });
 
-    // ---------- التقاط الصورة ----------
+            video.srcObject = rearStream;
+        } catch (error1) {
+            console.warn("تعذر تشغيل الكاميرا الخلفية:", error1);
+
+            camError.style.display = "block";
+
+            // نحاول الكاميرا الأمامية كـ fallback
+            try {
+                const frontStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: false
+                });
+
+                video.srcObject = frontStream;
+            } catch (error2) {
+                console.error("No camera available:", error2);
+                alert("لا توجد كاميرا متاحة على هذا الجهاز.");
+            }
+        }
+    }
+
+    // تشغيل الكاميرا عند فتح الصفحة
+    startCamera();
+
+    // التقاط الصورة
     captureBtn.onclick = () => {
+        if (!video.srcObject) {
+            alert("الكاميرا غير مفعلة.");
+            return;
+        }
+
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
+
         const ctx = canvas.getContext("2d");
         ctx.drawImage(video, 0, 0);
+
         saveBtn.disabled = false;
     };
 
-    // ---------- حفظ الصورة + المبلغ ----------
+    // حفظ العملية
     saveBtn.onclick = async () => {
         const amount = document.getElementById("amountInput").value.trim();
         if (!amount) {
