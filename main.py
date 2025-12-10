@@ -59,7 +59,6 @@ def register_user(request: Request, bank_account: str = Form(...)):
     import random, string
     user_id = "USR-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
     pin = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-
     try:
         with sqlite3.connect(DB_NAME) as conn:
             c = conn.cursor()
@@ -74,7 +73,6 @@ def register_user(request: Request, bank_account: str = Form(...)):
             "error": "رقم الحساب مستخدم مسبقًا.",
             "user_id": ""
         })
-
     return templates.TemplateResponse("show_pin.html", {"request": request, "user_id": user_id, "pin": pin})
 
 @app.get("/login")
@@ -95,7 +93,7 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
                 response.set_cookie(
                     key="current_user",
                     value=user_db_id,
-                    max_age=60 * 60 * 24 * 7,  # أسبوع
+                    max_age=60*60*24*7,
                     httponly=False,
                     secure=False,
                     samesite="none"
@@ -121,8 +119,7 @@ async def upload_from_phone(request: Request):
     try:
         data = await request.json()
         image_data = data.get("image_data")
-        amount_str = data.get("amount", "0")
-        amount = float(amount_str)
+        amount = float(data.get("amount", 0))
     except Exception as e:
         return JSONResponse({"success": False, "error": f"Invalid JSON or amount: {e}"}, status_code=400)
 
@@ -130,72 +127,45 @@ async def upload_from_phone(request: Request):
     if not user_id:
         return JSONResponse({"success": False, "error": "Not logged in"}, status_code=401)
 
-    try:
-        user_id_int = int(user_id)
-    except ValueError:
-        return JSONResponse({"success": False, "error": "Invalid user id"}, status_code=400)
-
-    if not image_data:
-        return JSONResponse({"success": False, "error": "No image data"}, status_code=400)
-
     if "," in image_data:
         _, b64 = image_data.split(",", 1)
     else:
         b64 = image_data
 
-    try:
-        img_bytes = base64.b64decode(b64)
-    except Exception:
-        return JSONResponse({"success": False, "error": "Invalid Base64"}, status_code=400)
-
+    img_bytes = base64.b64decode(b64)
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    filename = f"{user_id_int}_{timestamp}.png"
+    filename = f"{user_id}_{timestamp}.png"
     filepath = os.path.join(RECEIPTS_DIR, filename)
 
-    try:
-        with open(filepath, "wb") as f:
-            f.write(img_bytes)
-    except Exception:
-        return JSONResponse({"success": False, "error": "Failed to save image"}, status_code=500)
+    with open(filepath, "wb") as f:
+        f.write(img_bytes)
 
     # حفظ العملية
-    try:
-        with sqlite3.connect(DB_NAME) as conn:
-            c = conn.cursor()
-            c.execute(
-                "INSERT INTO transactions (user_id, image_path, amount, created_at) VALUES (?, ?, ?, ?)",
-                (user_id_int, filepath, amount, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            )
-            conn.commit()
-    except Exception as e:
-        traceback.print_exc()
-        return JSONResponse({"success": False, "error": f"Failed to save transaction: {e}"}, status_code=500)
+    with sqlite3.connect(DB_NAME) as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO transactions (user_id, image_path, amount, created_at) VALUES (?, ?, ?, ?)",
+            (int(user_id), filepath, amount, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        conn.commit()
 
     return {"success": True}
 
-# ---------- صفحة عرض الإشعارات ----------
+# ---------- عرض الإشعارات (Gallery) ----------
 @app.get("/view")
 def view_receipts(request: Request):
     user_id = request.cookies.get("current_user")
     if not user_id:
         return RedirectResponse("/login")
 
-    try:
-        user_id_int = int(user_id)
-    except ValueError:
-        return RedirectResponse("/login")
-
-    try:
-        with sqlite3.connect(DB_NAME) as conn:
-            conn.row_factory = sqlite3.Row
-            c = conn.cursor()
-            c.execute("SELECT * FROM transactions WHERE user_id=? ORDER BY id DESC", (user_id_int,))
-            rows = c.fetchall()
-    except Exception as e:
-        traceback.print_exc()
-        rows = []
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute("SELECT * FROM transactions WHERE user_id=? ORDER BY id DESC", (int(user_id),))
+        rows = c.fetchall()
 
     images = [{
+        "id": r["id"],
         "file": os.path.basename(r["image_path"]),
         "amount": r["amount"]
     } for r in rows]
@@ -216,26 +186,66 @@ def delete_all(request: Request):
     if not user_id:
         return RedirectResponse("/login")
 
+    with sqlite3.connect(DB_NAME) as conn:
+        c = conn.cursor()
+        c.execute("SELECT image_path FROM transactions WHERE user_id=?", (int(user_id),))
+        rows = c.fetchall()
+        for r in rows:
+            path = r[0]
+            if path and os.path.exists(path):
+                os.remove(path)
+        c.execute("DELETE FROM transactions WHERE user_id=?", (int(user_id),))
+        conn.commit()
+
+    return RedirectResponse("/view", status_code=303)
+
+# ---------- حذف إشعار واحد ----------
+@app.post("/delete/{transaction_id}")
+def delete_transaction(transaction_id: int, request: Request):
+    user_id = request.cookies.get("current_user")
+    if not user_id:
+        return JSONResponse({"success": False, "error": "Not logged in"}, status_code=401)
     try:
-        user_id_int = int(user_id)
+        with sqlite3.connect(DB_NAME) as conn:
+            c = conn.cursor()
+            c.execute("SELECT image_path FROM transactions WHERE id=? AND user_id=?", (transaction_id, int(user_id)))
+            row = c.fetchone()
+            if row and os.path.exists(row[0]):
+                os.remove(row[0])
+            c.execute("DELETE FROM transactions WHERE id=? AND user_id=?", (transaction_id, int(user_id)))
+            conn.commit()
+        return JSONResponse({"success": True})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+# ---------- تعديل المبلغ ----------
+@app.post("/update_amount/{transaction_id}")
+def update_amount(transaction_id: int, request: Request):
+    user_id = request.cookies.get("current_user")
+    if not user_id:
+        return JSONResponse({"success": False, "error": "Not logged in"}, status_code=401)
+
+    data = request.query_params
+    new_amount = data.get("amount")
+    if new_amount is None:
+        return JSONResponse({"success": False, "error": "No amount provided"}, status_code=400)
+
+    try:
+        amount_val = float(new_amount)
     except ValueError:
-        return RedirectResponse("/login")
+        return JSONResponse({"success": False, "error": "Invalid amount"}, status_code=400)
 
     try:
         with sqlite3.connect(DB_NAME) as conn:
             c = conn.cursor()
-            c.execute("SELECT image_path FROM transactions WHERE user_id=?", (user_id_int,))
-            rows = c.fetchall()
-            for r in rows:
-                path = r[0]
-                if path and os.path.exists(path):
-                    os.remove(path)
-            c.execute("DELETE FROM transactions WHERE user_id=?", (user_id_int,))
+            c.execute(
+                "UPDATE transactions SET amount=? WHERE id=? AND user_id=?",
+                (amount_val, transaction_id, int(user_id))
+            )
             conn.commit()
-    except Exception:
-        traceback.print_exc()
-
-    return RedirectResponse("/view", status_code=303)
+        return JSONResponse({"success": True, "amount": amount_val})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 # ---------- تشغيل محلي ----------
 if __name__ == "__main__":
