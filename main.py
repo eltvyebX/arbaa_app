@@ -96,9 +96,9 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
                     key="current_user",
                     value=user_db_id,
                     max_age=60 * 60 * 24 * 7,  # أسبوع كامل
-                    httponly=True,
+                    httponly=False,
                     secure=False,  # True إذا كان HTTPS
-                    samesite="lax"
+                    samesite="none"
                 )
                 return response
             else:
