@@ -90,8 +90,16 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
             c.execute("SELECT id FROM users WHERE bank_account = ? AND pin = ?", (bank_account, pin))
             row = c.fetchone()
             if row:
+                user_db_id = str(row["id"])
                 response = RedirectResponse(url="/index", status_code=303)
-                response.set_cookie(key="current_user", value=str(row["id"]))
+                response.set_cookie(
+                    key="current_user",
+                    value=user_db_id,
+                    max_age=60 * 60 * 24 * 7,  # أسبوع كامل
+                    httponly=True,
+                    secure=False,  # True إذا كان HTTPS
+                    samesite="lax"
+                )
                 return response
             else:
                 return templates.TemplateResponse("login.html", {
