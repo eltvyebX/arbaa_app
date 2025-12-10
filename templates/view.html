@@ -1,12 +1,12 @@
 {% extends "base_user.html" %}
 
-{% block title %}لوحة الإيصالات{% endblock %}
+{% block title %}لوحة الإشعارات{% endblock %}
 
 {% block content %}
 
-<div class="card p-3 shadow-sm text-center">
+<div class="card p-3 shadow-sm">
 
-    <h3 class="mb-3">لوحة الإيصالات</h3>
+    <h3 class="mb-3 text-center">مجلد الإشعارات</h3>
 
     <!-- Dashboard Boxes -->
     <div class="row text-center mb-4">
@@ -16,7 +16,6 @@
                 <h2 class="fw-bold">{{ total_images }}</h2>
             </div>
         </div>
-
         <div class="col-6">
             <div class="stats-box p-3">
                 <h5 class="text-muted">إجمالي المبالغ</h5>
@@ -25,79 +24,104 @@
         </div>
     </div>
 
-    <!-- زر الرجوع -->
-    <a href="/index" class="btn btn-primary w-100 mb-3">التقاط إشعار جديد</a>
+    <!-- أزرار التحكم -->
+    <div class="mb-3 text-center">
+        <a href="/index" class="btn btn-primary">التقاط إشعار جديد</a>
+        <a href="/delete_all" class="btn btn-danger" onclick="return confirm('هل تريد حذف كل الإشعارات؟');">حذف الكل</a>
+    </div>
 
-    <!-- زر حذف جميع الصور -->
-    <a href="/delete_all" class="btn btn-danger w-100 mb-3"
-       onclick="return confirm('هل أنت متأكد من حذف جميع الإشعارات؟');">
-        حذف جميع الصور
-    </a>
-
-    <hr>
-
-    <h5 class="mt-3 mb-3">صور الإشعارات</h5>
-
+    <!-- شبكة الصور -->
     {% if images %}
     <div class="images-grid">
         {% for img in images %}
-            <div class="img-card">
-                <img src="/static/receipts/{{ img.file }}" alt="Receipt Image">
-                <p class="amount-label">المبلغ: {{ img.amount }}</p>
+            <div class="img-card" data-id="{{ img.id }}">
+                <img src="/static/receipts/{{ img.file }}" alt="Receipt" class="thumbnail">
+                <p class="amount-label">المبلغ: <span class="amount-text">{{ img.amount }}</span></p>
+                <button class="btn btn-sm btn-outline-danger delete-btn mt-1">حذف</button>
             </div>
         {% endfor %}
     </div>
     {% else %}
-        <p class="text-muted">لا توجد إشعارات محفوظة حتى الآن.</p>
+        <p class="text-muted text-center">لا توجد إشعارات محفوظة.</p>
     {% endif %}
 
 </div>
 
+<!-- Modal لعرض الصورة كبيرة -->
+<div id="lightbox" class="lightbox">
+    <span class="close">&times;</span>
+    <img class="lightbox-img" id="lightbox-img">
+    <div class="navigation">
+        <button id="prevBtn">&#10094;</button>
+        <button id="nextBtn">&#10095;</button>
+    </div>
+</div>
+
+<script>
+// --------- Gallery + Lightbox ----------
+const thumbnails = document.querySelectorAll(".thumbnail");
+const lightbox = document.getElementById("lightbox");
+const lightboxImg = document.getElementById("lightbox-img");
+const closeBtn = document.querySelector(".close");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let currentIndex = 0;
+let images = Array.from(thumbnails).map(img => img.src);
+
+thumbnails.forEach((thumb, idx) => {
+    thumb.onclick = () => {
+        currentIndex = idx;
+        lightboxImg.src = images[currentIndex];
+        lightbox.style.display = "block";
+    }
+});
+
+closeBtn.onclick = () => lightbox.style.display = "none";
+
+prevBtn.onclick = () => {
+    currentIndex = (currentIndex - 1 + images.length) % images.length;
+    lightboxImg.src = images[currentIndex];
+}
+
+nextBtn.onclick = () => {
+    currentIndex = (currentIndex + 1) % images.length;
+    lightboxImg.src = images[currentIndex];
+}
+
+// --------- حذف الصورة ----------
+document.querySelectorAll(".delete-btn").forEach(btn => {
+    btn.onclick = async () => {
+        if (!confirm("هل تريد حذف هذه الإشعار؟")) return;
+        const card = btn.closest(".img-card");
+        const id = card.dataset.id;
+
+        const res = await fetch(`/delete/${id}`, { method: "POST" });
+        const data = await res.json().catch(() => ({ success: true }));
+
+        if (data.success !== false) {
+            card.remove();
+            images = images.filter(src => src !== card.querySelector("img").src);
+            alert("تم حذف الإشعار.");
+        } else {
+            alert("فشل الحذف: " + data.error);
+        }
+    };
+});
+</script>
+
 <style>
-    .stats-box {
-        background: #f8f9fa;
-        border-radius: 10px;
-        border: 1px solid #ddd;
-    }
-
-    .images-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-        gap: 12px;
-        padding-bottom: 20px;
-    }
-
-    .img-card {
-        background: white;
-        padding: 10px;
-        border-radius: 12px;
-        box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
-        text-align: center;
-    }
-
-    .img-card img {
-        width: 100%;
-        max-height: 160px;
-        object-fit: contain;
-        border-radius: 8px;
-    }
-
-    .amount-label {
-        margin-top: 8px;
-        font-weight: bold;
-        color: #59287f;
-        font-size: 14px;
-    }
-
-    @media (max-width: 480px) {
-        .images-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .img-card img {
-            max-height: 130px;
-        }
-    }
+.stats-box { background:#f8f9fa; border-radius:10px; border:1px solid #ddd; }
+.images-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; }
+.img-card { position:relative; background:white; padding:8px; border-radius:10px; text-align:center; box-shadow:0 0 6px rgba(0,0,0,0.1);}
+.img-card img { width:100%; height:120px; object-fit:contain; border-radius:6px; cursor:pointer;}
+.amount-label { font-weight:bold; color:#59287f; margin-top:5px;}
+.lightbox { display:none; position:fixed; z-index:999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); align-items:center; justify-content:center; }
+.lightbox-img { max-width:90%; max-height:90%; margin:auto; display:block;}
+.close { position:absolute; top:15px; right:25px; color:white; font-size:30px; cursor:pointer;}
+.navigation { position:absolute; top:50%; width:100%; display:flex; justify-content:space-between; padding:0 20px; }
+.navigation button { background:none; border:none; color:white; font-size:40px; cursor:pointer;}
+@media (max-width:480px){ .images-grid{grid-template-columns:repeat(2,1fr);} .img-card img{height:100px;} }
 </style>
 
 {% endblock %}
