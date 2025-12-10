@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import base64
 
-# إعداد التطبيق
+# ---------- إعداد التطبيق ----------
 app = FastAPI()
 DB_NAME = "bank_receipts.db"
 RECEIPTS_DIR = os.path.join("static", "receipts")
@@ -19,7 +19,7 @@ os.makedirs("static", exist_ok=True)
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# قاعدة البيانات
+# ---------- قاعدة البيانات ----------
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
@@ -45,7 +45,7 @@ def init_db():
 
 init_db()
 
-# صفحات المستخدم
+# ---------- صفحات المستخدم ----------
 @app.get("/")
 def start_page(request: Request):
     return templates.TemplateResponse("start_page.html", {"request": request})
@@ -95,9 +95,9 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
                 response.set_cookie(
                     key="current_user",
                     value=user_db_id,
-                    max_age=60 * 60 * 24 * 7,  # أسبوع كامل
+                    max_age=60 * 60 * 24 * 7,  # أسبوع
                     httponly=False,
-                    secure=False,  # True إذا كان HTTPS
+                    secure=False,
                     samesite="none"
                 )
                 return response
@@ -110,64 +110,90 @@ def login_user(request: Request, bank_account: str = Form(...), pin: str = Form(
         traceback.print_exc()
         return templates.TemplateResponse("login.html", {"request": request, "error": "خطأ أثناء تسجيل الدخول."})
 
-# صفحة index
+# ---------- صفحة index ----------
 @app.get("/index", response_class=HTMLResponse)
 def index_page(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# استقبال الصورة + المبلغ
+# ---------- استقبال الصورة + المبلغ ----------
 @app.post("/upload_from_phone")
 async def upload_from_phone(request: Request):
     try:
         data = await request.json()
         image_data = data.get("image_data")
-        amount = float(data.get("amount", 0))
-    except:
-        return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
+        amount_str = data.get("amount", "0")
+        amount = float(amount_str)
+    except Exception as e:
+        return JSONResponse({"success": False, "error": f"Invalid JSON or amount: {e}"}, status_code=400)
 
     user_id = request.cookies.get("current_user")
     if not user_id:
         return JSONResponse({"success": False, "error": "Not logged in"}, status_code=401)
 
-    # فك Base64
+    try:
+        user_id_int = int(user_id)
+    except ValueError:
+        return JSONResponse({"success": False, "error": "Invalid user id"}, status_code=400)
+
+    if not image_data:
+        return JSONResponse({"success": False, "error": "No image data"}, status_code=400)
+
     if "," in image_data:
         _, b64 = image_data.split(",", 1)
     else:
         b64 = image_data
 
-    img_bytes = base64.b64decode(b64)
+    try:
+        img_bytes = base64.b64decode(b64)
+    except Exception:
+        return JSONResponse({"success": False, "error": "Invalid Base64"}, status_code=400)
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    filename = f"{user_id}_{timestamp}.png"
+    filename = f"{user_id_int}_{timestamp}.png"
     filepath = os.path.join(RECEIPTS_DIR, filename)
 
-    # حفظ الصورة
-    with open(filepath, "wb") as f:
-        f.write(img_bytes)
+    try:
+        with open(filepath, "wb") as f:
+            f.write(img_bytes)
+    except Exception:
+        return JSONResponse({"success": False, "error": "Failed to save image"}, status_code=500)
 
     # حفظ العملية
-    with sqlite3.connect(DB_NAME) as conn:
-        c = conn.cursor()
-        c.execute(
-            "INSERT INTO transactions (user_id, image_path, amount, created_at) VALUES (?, ?, ?, ?)",
-            (int(user_id), filepath, amount, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        )
-        conn.commit()
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            c = conn.cursor()
+            c.execute(
+                "INSERT INTO transactions (user_id, image_path, amount, created_at) VALUES (?, ?, ?, ?)",
+                (user_id_int, filepath, amount, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            )
+            conn.commit()
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse({"success": False, "error": f"Failed to save transaction: {e}"}, status_code=500)
 
     return {"success": True}
 
-# صفحة عرض الإشعارات
+# ---------- صفحة عرض الإشعارات ----------
 @app.get("/view")
 def view_receipts(request: Request):
     user_id = request.cookies.get("current_user")
     if not user_id:
         return RedirectResponse("/login")
 
-    with sqlite3.connect(DB_NAME) as conn:
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute("SELECT * FROM transactions WHERE user_id=? ORDER BY id DESC", (user_id,))
-        rows = c.fetchall()
+    try:
+        user_id_int = int(user_id)
+    except ValueError:
+        return RedirectResponse("/login")
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            c.execute("SELECT * FROM transactions WHERE user_id=? ORDER BY id DESC", (user_id_int,))
+            rows = c.fetchall()
+    except Exception as e:
+        traceback.print_exc()
+        rows = []
 
     images = [{
         "file": os.path.basename(r["image_path"]),
@@ -183,28 +209,35 @@ def view_receipts(request: Request):
         "total_images": len(rows)
     })
 
-# حذف كل شيء
+# ---------- حذف كل الإشعارات ----------
 @app.post("/delete_all")
 def delete_all(request: Request):
     user_id = request.cookies.get("current_user")
     if not user_id:
         return RedirectResponse("/login")
 
-    with sqlite3.connect(DB_NAME) as conn:
-        c = conn.cursor()
-        c.execute("SELECT image_path FROM transactions WHERE user_id=?", (user_id,))
-        rows = c.fetchall()
+    try:
+        user_id_int = int(user_id)
+    except ValueError:
+        return RedirectResponse("/login")
 
-        for r in rows:
-            if os.path.exists(r[0]):
-                os.remove(r[0])
-
-        c.execute("DELETE FROM transactions WHERE user_id=?", (user_id,))
-        conn.commit()
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            c = conn.cursor()
+            c.execute("SELECT image_path FROM transactions WHERE user_id=?", (user_id_int,))
+            rows = c.fetchall()
+            for r in rows:
+                path = r[0]
+                if path and os.path.exists(path):
+                    os.remove(path)
+            c.execute("DELETE FROM transactions WHERE user_id=?", (user_id_int,))
+            conn.commit()
+    except Exception:
+        traceback.print_exc()
 
     return RedirectResponse("/view", status_code=303)
 
-# تشغيل
+# ---------- تشغيل محلي ----------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
