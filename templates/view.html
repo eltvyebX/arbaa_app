@@ -27,7 +27,12 @@
     <!-- أزرار التحكم -->
     <div class="mb-3 text-center">
         <a href="/index" class="btn btn-primary">التقاط إشعار جديد</a>
-        <a href="/delete_all" class="btn btn-danger" onclick="return confirm('هل تريد حذف كل الإشعارات؟');">حذف الكل</a>
+
+        <!-- زر حذف كل الإشعارات (POST) -->
+        <form action="/delete_all" method="post" style="display:inline;"
+              onsubmit="return confirm('هل تريد حذف كل الإشعارات؟');">
+            <button type="submit" class="btn btn-danger">حذف الكل</button>
+        </form>
     </div>
 
     <!-- شبكة الصور -->
@@ -113,15 +118,18 @@ document.querySelectorAll(".delete-btn").forEach(btn => {
 <style>
 .stats-box { background:#f8f9fa; border-radius:10px; border:1px solid #ddd; }
 .images-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; }
-.img-card { position:relative; background:white; padding:8px; border-radius:10px; text-align:center; box-shadow:0 0 6px rgba(0,0,0,0.1);}
-.img-card img { width:100%; height:120px; object-fit:contain; border-radius:6px; cursor:pointer;}
-.amount-label { font-weight:bold; color:#59287f; margin-top:5px;}
+.img-card { position:relative; background:white; padding:8px; border-radius:10px; text-align:center; box-shadow:0 0 6px rgba(0,0,0,0.1); }
+.img-card img { width:100%; height:120px; object-fit:contain; border-radius:6px; cursor:pointer; }
+.amount-label { font-weight:bold; color:#59287f; margin-top:5px; }
 .lightbox { display:none; position:fixed; z-index:999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); align-items:center; justify-content:center; }
-.lightbox-img { max-width:90%; max-height:90%; margin:auto; display:block;}
-.close { position:absolute; top:15px; right:25px; color:white; font-size:30px; cursor:pointer;}
+.lightbox-img { max-width:90%; max-height:90%; margin:auto; display:block; }
+.close { position:absolute; top:15px; right:25px; color:white; font-size:30px; cursor:pointer; }
 .navigation { position:absolute; top:50%; width:100%; display:flex; justify-content:space-between; padding:0 20px; }
-.navigation button { background:none; border:none; color:white; font-size:40px; cursor:pointer;}
-@media (max-width:480px){ .images-grid{grid-template-columns:repeat(2,1fr);} .img-card img{height:100px;} }
+.navigation button { background:none; border:none; color:white; font-size:40px; cursor:pointer; }
+@media (max-width:480px){
+    .images-grid { grid-template-columns:repeat(2,1fr); }
+    .img-card img { height:100px; }
+}
 </style>
 
 {% endblock %}
