@@ -13,14 +13,14 @@
         <div class="col-6">
             <div class="stats-box p-3">
                 <h5 class="text-muted">عدد الإشعارات</h5>
-                <h2 class="fw-bold">{{ total_images }}</h2>
+                <h2 class="fw-bold" id="totalCount">{{ total_images }}</h2>
             </div>
         </div>
         <div class="col-6">
             <div class="stats-box p-3">
                 <h5 class="text-muted">إجمالي المبالغ</h5>
-                <h2 class="fw-bold" style="color:#59287f;" id="totalAmount">
-                    {{ '%.2f'|format(total_amount)|intcomma }}
+                <h2 class="fw-bold" id="totalAmount" style="color:#59287f;">
+                    {{ "{:,}".format(total_amount) }}
                 </h2>
             </div>
         </div>
@@ -29,24 +29,39 @@
     <!-- أزرار التحكم -->
     <div class="mb-3 text-center">
         <a href="/index" class="btn btn-primary">التقاط إشعار جديد</a>
-        <a href="/delete_all" class="btn btn-danger" onclick="return confirm('هل تريد حذف كل الإشعارات؟');">حذف الكل</a>
+
+        <a href="/export_pdf" class="btn btn-secondary">
+            ⬇ تصدير PDF
+        </a>
+
+        <a href="/delete_all" class="btn btn-danger"
+           onclick="return confirm('هل تريد حذف كل الإشعارات؟');">
+           حذف الكل
+        </a>
     </div>
 
     <!-- شبكة الصور -->
     {% if images %}
     <div class="images-grid">
         {% for img in images %}
-            <div class="img-card" data-id="{{ img.id }}">
-                <img src="/static/receipts/{{ img.file }}" alt="Receipt" class="thumbnail">
+            <div class="img-card" data-id="{{ img.id }}" data-amount="{{ img.amount }}">
+                <img src="/static/receipts/{{ img.file }}" class="thumbnail">
+
                 <p class="amount-label">
-                    المبلغ: <span class="amount-text" id="amount_{{ img.id }}">
-                        {{ '%.2f'|format(img.amount)|intcomma }}
-                    </span>
+                    المبلغ:
+                    <span class="amount-text">{{ "{:,}".format(img.amount) }}</span>
                 </p>
-                <button class="btn btn-sm btn-outline-warning mt-1" onclick="updateAmount({{ img.id }})">
-                    تعديل المبلغ
+
+                <!-- تعديل المبلغ -->
+                <input class="form-control form-control-sm edit-amount"
+                       value="{{ img.amount }}"
+                       type="text"
+                       inputmode="numeric"
+                       pattern="[0-9]*">
+
+                <button class="btn btn-sm btn-outline-danger delete-btn mt-1">
+                    حذف
                 </button>
-                <button class="btn btn-sm btn-outline-danger delete-btn mt-1">حذف</button>
             </div>
         {% endfor %}
     </div>
@@ -56,7 +71,7 @@
 
 </div>
 
-<!-- Modal لعرض الصورة كبيرة -->
+<!-- Lightbox -->
 <div id="lightbox" class="lightbox">
     <span class="close">&times;</span>
     <img class="lightbox-img" id="lightbox-img">
@@ -67,7 +82,7 @@
 </div>
 
 <script>
-// ---------- Gallery + Lightbox ----------
+/* ------------------------- Lightbox -------------------------- */
 const thumbnails = document.querySelectorAll(".thumbnail");
 const lightbox = document.getElementById("lightbox");
 const lightboxImg = document.getElementById("lightbox-img");
@@ -76,94 +91,114 @@ const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 
 let currentIndex = 0;
-let images = Array.from(thumbnails).map(img => img.src);
+let gallery = Array.from(thumbnails).map(t => t.src);
 
-thumbnails.forEach((thumb, idx) => {
+thumbnails.forEach((thumb, i) => {
     thumb.onclick = () => {
-        currentIndex = idx;
-        lightboxImg.src = images[currentIndex];
+        currentIndex = i;
+        lightboxImg.src = gallery[currentIndex];
         lightbox.style.display = "flex";
-    }
+    };
 });
 
 closeBtn.onclick = () => lightbox.style.display = "none";
+prevBtn.onclick = () => showImg(currentIndex - 1);
+nextBtn.onclick = () => showImg(currentIndex + 1);
 
-prevBtn.onclick = () => {
-    currentIndex = (currentIndex - 1 + images.length) % images.length;
-    lightboxImg.src = images[currentIndex];
+function showImg(i) {
+    currentIndex = (i + gallery.length) % gallery.length;
+    lightboxImg.src = gallery[currentIndex];
 }
 
-nextBtn.onclick = () => {
-    currentIndex = (currentIndex + 1) % images.length;
-    lightboxImg.src = images[currentIndex];
-}
-
-// ---------- حذف الصورة ----------
+/* -------------------- حذف صورة ----------------------- */
 document.querySelectorAll(".delete-btn").forEach(btn => {
     btn.onclick = async () => {
         if (!confirm("هل تريد حذف هذه الإشعار؟")) return;
+
         const card = btn.closest(".img-card");
         const id = card.dataset.id;
 
         const res = await fetch(`/delete/${id}`, { method: "POST" });
-        const data = await res.json().catch(() => ({ success: true }));
+        const data = await res.json();
 
-        if (data.success !== false) {
+        if (data.success) {
             card.remove();
-            images = images.filter(src => src !== card.querySelector("img").src);
-
-            // تحديث إجمالي المبالغ
-            const totalEl = document.getElementById("totalAmount");
-            let current_total = Number(totalEl.innerText.replace(/,/g, ""));
-            let removed_amount = Number(card.querySelector(".amount-text").innerText.replace(/,/g, ""));
-            totalEl.innerText = (current_total - removed_amount).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
-
-            alert("تم حذف الإشعار.");
+            updateTotals();
         } else {
-            alert("فشل الحذف: " + data.error);
+            alert("فشل الحذف");
         }
     };
 });
 
-// ---------- تعديل المبلغ ----------
-async function updateAmount(id) {
-    let new_val = prompt("أدخل المبلغ الجديد:");
-    if (!new_val) return;
+/* ---------------- تعديل المبلغ + تحديث الإجمالي ---------------- */
+const formatNumber = num =>
+    num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-    // إزالة أي فاصلة قبل الإرسال
-    new_val = new_val.replace(/,/g, "");
+document.querySelectorAll(".edit-amount").forEach(input => {
+    input.addEventListener("input", () => {
+        input.value = input.value.replace(/[^0-9]/g, ""); // مسموح أرقام فقط
+    });
 
-    const res = await fetch(`/update_amount/${id}?amount=${new_val}`, { method: "POST" });
-    const data = await res.json();
+    input.addEventListener("change", async () => {
+        const card = input.closest(".img-card");
+        const id = card.dataset.id;
+        const oldAmount = parseInt(card.dataset.amount);
+        const newAmount = parseInt(input.value || "0");
 
-    if (data.success) {
-        // تحديث المبلغ في الواجهة مع تنسيق الفواصل
-        document.getElementById("amount_" + id).innerText =
-            Number(data.new_amount).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+        if (newAmount <= 0) {
+            alert("المبلغ غير صالح");
+            input.value = oldAmount;
+            return;
+        }
 
-        // تعديل الإجمالي فوراً
-        const totalEl = document.getElementById("totalAmount");
-        let current_total = Number(totalEl.innerText.replace(/,/g, ""));
-        let new_total = current_total + data.difference;
-        totalEl.innerText = new_total.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
-    } else {
-        alert("خطأ: " + data.error);
-    }
+        const res = await fetch(`/update_amount/${id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount: newAmount })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            card.dataset.amount = newAmount;
+            card.querySelector(".amount-text").textContent = formatNumber(newAmount);
+            updateTotals();
+        } else {
+            alert("فشل التعديل");
+            input.value = oldAmount;
+        }
+    });
+});
+
+/* ----------- تحديث إجمالي المبالغ تلقائيًا ----------- */
+function updateTotals() {
+    const cards = document.querySelectorAll(".img-card");
+    const totalAmountBox = document.getElementById("totalAmount");
+    const totalCountBox = document.getElementById("totalCount");
+
+    let total = 0;
+
+    cards.forEach(card => {
+        total += parseInt(card.dataset.amount);
+    });
+
+    totalAmountBox.textContent = formatNumber(total);
+    totalCountBox.textContent = cards.length;
 }
 </script>
 
 <style>
 .stats-box { background:#f8f9fa; border-radius:10px; border:1px solid #ddd; }
-.images-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; }
-.img-card { position:relative; background:white; padding:8px; border-radius:10px; text-align:center; box-shadow:0 0 6px rgba(0,0,0,0.1);}
-.img-card img { width:100%; height:120px; object-fit:contain; border-radius:6px; cursor:pointer;}
-.amount-label { font-weight:bold; color:#59287f; margin-top:5px;}
-.lightbox { display:none; position:fixed; z-index:999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); align-items:center; justify-content:center; }
-.lightbox-img { max-width:90%; max-height:90%; margin:auto; display:block;}
-.close { position:absolute; top:15px; right:25px; color:white; font-size:30px; cursor:pointer;}
-.navigation { position:absolute; top:50%; width:100%; display:flex; justify-content:space-between; padding:0 20px; }
-.navigation button { background:none; border:none; color:white; font-size:40px; cursor:pointer;}
-@media (max-width:480px){ .images-grid{grid-template-columns:repeat(2,1fr);} .img-card img{height:100px;} }
+.images-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:14px; }
+.img-card { background:white; padding:8px; border-radius:8px; text-align:center; box-shadow:0 0 5px rgba(0,0,0,0.1);}
+.thumbnail { width:100%; height:120px; object-fit:contain; cursor:pointer; }
+.amount-label { margin:5px 0 3px; font-weight:bold; color:#59287f; }
+.edit-amount { text-align:center; }
+.lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:1000; justify-content:center; align-items:center; }
+.lightbox-img { max-width:90%; max-height:90%; }
+.close { position:absolute; top:20px; right:30px; color:white; font-size:32px; cursor:pointer; }
+.navigation { position:absolute; width:100%; top:50%; display:flex; justify-content:space-between; padding:0 25px; }
+.navigation button { background:none; border:none; color:white; font-size:40px; cursor:pointer; }
 </style>
 
 {% endblock %}
