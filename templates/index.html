@@ -26,8 +26,13 @@
     <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
     <!-- إدخال المبلغ -->
-    <input id="amountInput" class="form-control mt-3" 
-           placeholder="أدخل المبلغ يدوياً">
+    <input id="amountInput"
+           class="form-control mt-3"
+           placeholder="أدخل المبلغ"
+           type="text"
+           inputmode="decimal"
+           pattern="[0-9]*"
+           autocomplete="off">
 
     <!-- حفظ -->
     <button id="saveBtn" class="btn btn-success w-100 mt-3" disabled>
@@ -39,7 +44,15 @@
         عرض الإشعارات
     </a>
 
+    <!-- رسالة الحفظ السريع -->
+    <div id="saveMessage"
+         class="alert alert-success mt-3"
+         style="display:none; font-weight:bold;">
+        ✔ تم حفظ العملية بنجاح
+    </div>
+
 </div>
+
 
 <script>
     const video = document.getElementById("camera");
@@ -47,40 +60,33 @@
     const captureBtn = document.getElementById("captureBtn");
     const saveBtn = document.getElementById("saveBtn");
     const camError = document.getElementById("cameraError");
+    const amountInput = document.getElementById("amountInput");
+    const saveMessage = document.getElementById("saveMessage");
 
+    // -------- تشغيل الكاميرا الخلفية --------
     async function startCamera() {
         try {
-            // نحاول الكاميرا الخلفية
             const rearStream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: "environment" },
                 audio: false
             });
-
             video.srcObject = rearStream;
         } catch (error1) {
-            console.warn("تعذر تشغيل الكاميرا الخلفية:", error1);
-
             camError.style.display = "block";
-
-            // نحاول الكاميرا الأمامية كـ fallback
             try {
                 const frontStream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                     audio: false
                 });
-
                 video.srcObject = frontStream;
             } catch (error2) {
-                console.error("No camera available:", error2);
                 alert("لا توجد كاميرا متاحة على هذا الجهاز.");
             }
         }
     }
-
-    // تشغيل الكاميرا عند فتح الصفحة
     startCamera();
 
-    // التقاط الصورة
+    // -------- التقاط الصورة --------
     captureBtn.onclick = () => {
         if (!video.srcObject) {
             alert("الكاميرا غير مفعلة.");
@@ -96,9 +102,27 @@
         saveBtn.disabled = false;
     };
 
-    // حفظ العملية
+    // -------- منع إدخال أي حرف غير رقمي + تنسيق تلقائي --------
+    function formatNumber(value) {
+        value = value.replace(/,/g, "");
+        let num = parseInt(value, 10);
+        if (isNaN(num)) return "";
+        return num.toLocaleString("en-US");
+    }
+
+    amountInput.addEventListener("input", () => {
+        let raw = amountInput.value;
+
+        // منع أي شيء غير 0-9
+        raw = raw.replace(/[^0-9]/g, "");
+
+        amountInput.value = formatNumber(raw);
+    });
+
+    // -------- حفظ العملية --------
     saveBtn.onclick = async () => {
-        const amount = document.getElementById("amountInput").value.trim();
+        let amount = amountInput.value.replace(/,/g, "");
+
         if (!amount) {
             alert("يرجى إدخال المبلغ.");
             return;
@@ -117,8 +141,14 @@
 
         const data = await res.json();
         if (data.success) {
-            alert("تم حفظ العملية بنجاح");
-            window.location.href = "/view";
+
+            // عرض رسالة الحفظ السريع
+            saveMessage.style.display = "block";
+            setTimeout(() => saveMessage.style.display = "none", 1500);
+
+            // تفريغ الخانات للتحضير لعملية جديدة
+            saveBtn.disabled = true;
+            amountInput.value = "";
         } else {
             alert("فشل الحفظ: " + data.error);
         }
