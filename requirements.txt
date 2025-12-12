@@ -3,5 +3,5 @@ uvicorn
 jinja2
 python-multipart
 pillow
-pytesseract
+reportlab
 numpy
