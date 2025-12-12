@@ -322,31 +322,54 @@ def delete_transaction(transaction_id: int, request: Request):
 def update_amount(transaction_id: int, request: Request):
     user_id = request.cookies.get("current_user")
     if not user_id:
-        return JSONResponse({"success": False, "error": "Not logged in"})
+        return JSONResponse({"success": False, "error": "Not logged in"}, status_code=401)
 
-    new_amount = request.query_params.get("amount")
+    data = request.query_params
+    new_amount = data.get("amount")
     if new_amount is None:
-        return JSONResponse({"success": False, "error": "Amount not provided"})
+        return JSONResponse({"success": False, "error": "No amount provided"}, status_code=400)
 
     try:
-        amount_val = float(new_amount)
-
-    except:
+        new_value = float(new_amount)
+    except ValueError:
         return JSONResponse({"success": False, "error": "Invalid amount"}, status_code=400)
 
     try:
         with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
             c = conn.cursor()
-            c.execute("""
-                UPDATE transactions SET amount=?
-                WHERE id=? AND user_id=?
-            """, (amount_val, transaction_id, int(user_id)))
+
+            # جلب المبلغ القديم
+            c.execute(
+                "SELECT amount FROM transactions WHERE id=? AND user_id=?",
+                (transaction_id, int(user_id))
+            )
+            row = c.fetchone()
+            if not row:
+                return JSONResponse({"success": False, "error": "Transaction not found"}, status_code=404)
+
+            old_value = float(row["amount"])
+
+            # حساب الفرق
+            diff = new_value - old_value
+
+            # تحديث المبلغ
+            c.execute(
+                "UPDATE transactions SET amount=? WHERE id=? AND user_id=?",
+                (new_value, transaction_id, int(user_id))
+            )
             conn.commit()
 
-        return JSONResponse({"success": True, "amount": amount_val})
+        return JSONResponse({
+            "success": True,
+            "new_amount": new_value,
+            "difference": diff
+        })
 
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+        
 
 
 # -------------------------------------------------------
