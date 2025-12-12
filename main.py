@@ -8,11 +8,9 @@ from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, File
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import base64
-
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-from reportlab.lib.units import mm
 
 # ---------- إعداد التطبيق ----------
 app = FastAPI()
@@ -184,13 +182,12 @@ def view_receipts(request: Request):
         "total_images": len(rows)
     })
 
-# ---------- حذف كل الإشعارات ----------
+# ---------- حذف جميع الإشعارات ----------
 @app.post("/delete_all")
 def delete_all(request: Request):
     user_id = request.cookies.get("current_user")
     if not user_id:
         return RedirectResponse("/login")
-
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
         c.execute("SELECT image_path FROM transactions WHERE user_id=?", (int(user_id),))
@@ -201,7 +198,6 @@ def delete_all(request: Request):
                 os.remove(path)
         c.execute("DELETE FROM transactions WHERE user_id=?", (int(user_id),))
         conn.commit()
-
     return RedirectResponse("/view", status_code=303)
 
 # ---------- حذف إشعار واحد ----------
@@ -225,16 +221,15 @@ def delete_transaction(transaction_id: int, request: Request):
 
 # ---------- تعديل المبلغ ----------
 @app.post("/update_amount/{transaction_id}")
-async def update_amount(transaction_id: int, request: Request):
+def update_amount(transaction_id: int, request: Request):
     user_id = request.cookies.get("current_user")
     if not user_id:
         return JSONResponse({"success": False, "error": "Not logged in"}, status_code=401)
 
-    data = await request.json()
+    data = request.query_params
     new_amount = data.get("amount")
     if new_amount is None:
         return JSONResponse({"success": False, "error": "No amount provided"}, status_code=400)
-
     try:
         amount_val = float(new_amount)
     except ValueError:
@@ -252,7 +247,7 @@ async def update_amount(transaction_id: int, request: Request):
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
-# ---------- تصدير PDF (جدول فقط بدون الصور) ----------
+# ---------- تصدير PDF بدون صور ----------
 @app.get("/export_pdf")
 def export_pdf(request: Request):
     user_id = request.cookies.get("current_user")
@@ -262,7 +257,7 @@ def export_pdf(request: Request):
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
-        c.execute("SELECT id, amount, created_at FROM transactions WHERE user_id=? ORDER BY id ASC", (int(user_id),))
+        c.execute("SELECT id, amount, created_at FROM transactions WHERE user_id=? ORDER BY id DESC", (int(user_id),))
         rows = c.fetchall()
 
     buffer = BytesIO()
@@ -270,34 +265,27 @@ def export_pdf(request: Request):
     width, height = A4
 
     pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawString(20*mm, height-20*mm, "جدول الإشعارات")
+    pdf.drawCentredString(width / 2, height - 50, "تقرير الإشعارات")
 
     pdf.setFont("Helvetica", 12)
-    start_y = height - 30*mm
-    line_height = 10*mm
-
-    # عناوين الأعمدة
-    pdf.drawString(20*mm, start_y, "رقم العملية")
-    pdf.drawString(70*mm, start_y, "التاريخ")
-    pdf.drawString(140*mm, start_y, "المبلغ")
-
-    start_y -= line_height
+    y = height - 80
+    pdf.drawString(50, y, "رقم العملية")
+    pdf.drawString(200, y, "المبلغ")
+    pdf.drawString(350, y, "التاريخ")
+    y -= 20
 
     for r in rows:
-        pdf.drawString(20*mm, start_y, str(r["id"]))
-        pdf.drawString(70*mm, start_y, r["created_at"])
-        pdf.drawRightString(200*mm, start_y, "{:,.2f}".format(r["amount"]))
-        start_y -= line_height
-        if start_y < 20*mm:
+        if y < 50:
             pdf.showPage()
-            pdf.setFont("Helvetica", 12)
-            start_y = height - 20*mm
+            y = height - 50
+        pdf.drawString(50, y, str(r["id"]))
+        pdf.drawString(200, y, "{:,.2f}".format(r["amount"]))
+        pdf.drawString(350, y, r["created_at"])
+        y -= 20
 
     pdf.save()
     buffer.seek(0)
-
-    filename = f"receipts_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-    return FileResponse(buffer, media_type="application/pdf", filename=filename)
+    return FileResponse(buffer, media_type="application/pdf", filename="notifications.pdf")
 
 # ---------- تشغيل محلي ----------
 if __name__ == "__main__":
